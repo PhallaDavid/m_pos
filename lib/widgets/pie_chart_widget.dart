@@ -55,13 +55,6 @@ class PieChartWidget extends StatelessWidget {
                 decoration: const BoxDecoration(
                   color: AppColors.surface,
                   shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Color(0x0F1E293B),
-                      blurRadius: 10,
-                      spreadRadius: -2,
-                    )
-                  ],
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,

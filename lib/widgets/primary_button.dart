@@ -15,8 +15,8 @@ class PrimaryButton extends StatelessWidget {
     this.onPressed,
     this.isLoading = false,
     this.icon,
-    this.height = 54.0,
-    this.borderRadius = 16.0,
+    this.height = 48.0,
+    this.borderRadius = 30.0,
   });
 
   @override

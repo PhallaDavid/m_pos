@@ -17,6 +17,7 @@ import 'manage_categories_screen.dart';
 import 'report_dashboard_screen.dart';
 import '../theme/app_translations.dart';
 import '../services/api_service.dart';
+import '../widgets/home_skeleton.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -54,11 +55,11 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   int _activeOrderFilter = 0;
   
-  // Selected display language (default Khmer, hot-reload safe)
-  String? _selectedLanguage = 'Khmer';
+  // Selected display language (default English, hot-reload safe)
+  String? _selectedLanguage = 'English';
 
   String get selectedLanguage {
-    _selectedLanguage ??= 'Khmer';
+    _selectedLanguage ??= 'English';
     return _selectedLanguage!;
   }
 
@@ -69,6 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // State for POS terminal settings expansion
   bool _isAboutExpanded = false;
+  bool _isDarkMode = false;
   
   // Category state filtering
   int _selectedPOSCategoryIndex = 0;
@@ -136,8 +138,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _isLoadingData = true;
     });
     try {
-      final dbCats = await ApiService.getCategories();
-      final products = await ApiService.getProducts();
+      final dbCats = await ApiService.getCategories(storeIdParam: ApiService.storeId);
+      final products = await ApiService.getProducts(storeIdParam: ApiService.storeId);
       
       // Fetch profile in parallel or secondary
       try {
@@ -149,14 +151,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
       // Fetch dashboard metrics
       try {
-        final stats = await ApiService.getDashboardStats();
+        final stats = await ApiService.getDashboardStats(storeIdParam: ApiService.storeId);
         _totalSalesRevenue = (stats['total_revenue'] as num?)?.toDouble() ?? 0.0;
         _totalOrdersCount = (stats['total_orders'] as num?)?.toInt() ?? 0;
       } catch (_) {}
 
       // Fetch recent orders
       try {
-        final ordersData = await ApiService.getOrders();
+        final ordersData = await ApiService.getOrders(storeIdParam: ApiService.storeId);
         final List<OrderItemModel> loadedOrders = [];
         double salesToday = 0.0;
         int ordersToday = 0;
@@ -247,124 +249,60 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Stack(
-        children: [
-          // 1. Background Gradient & Radial Glow Spotlight (Top 35-40% of Home Page ONLY)
-          if (_currentIndex == 0)
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: MediaQuery.of(context).size.height * 0.40,
-              child: Stack(
-                children: [
-                  // Soft diagonal gradient using main brand color fading into neutral background
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          AppColors.primary,
-                          AppColors.primary.withOpacity(0.85),
-                          AppColors.primary.withOpacity(0.35),
-                          AppColors.background.withOpacity(0.0),
-                        ],
-                        stops: const [0.0, 0.45, 0.75, 1.0],
-                      ),
-                    ),
+    return Theme(
+      data: AppTheme.getTheme(isDark: _isDarkMode, language: selectedLanguage),
+      child: Scaffold(
+        backgroundColor: _isDarkMode ? const Color(0xFF0F172A) : AppColors.background,
+        body: Stack(
+          children: [
+            // 2. Foreground Layer (Header + Page Content)
+            Column(
+              children: [
+                // Page-Specific Dynamic Top Header Bar
+                _buildTopHeader(),
+                
+                // Main Tab View Content
+                Expanded(
+                  child: IndexedStack(
+                    index: _currentIndex,
+                    children: [
+                      _buildHomeTab(),
+                      _buildPOSTab(),
+                      _buildOrderTab(),
+                      _buildSettingTab(),
+                    ],
                   ),
-                  // Spotlight / Radial Light Glow Circle (Top Right)
-                  Positioned(
-                    top: -30,
-                    right: -30,
-                    child: Container(
-                      width: 280,
-                      height: 280,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [
-                            Colors.white.withOpacity(0.25),
-                            Colors.white.withOpacity(0.0),
-                          ],
-                          stops: const [0.0, 1.0],
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Spotlight / Radial Light Glow Circle (Top Left)
-                  Positioned(
-                    top: 20,
-                    left: -40,
-                    child: Container(
-                      width: 220,
-                      height: 220,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [
-                            Colors.white.withOpacity(0.20),
-                            Colors.white.withOpacity(0.0),
-                          ],
-                          stops: const [0.0, 1.0],
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-          // 2. Foreground Layer (Header + Page Content)
-          Column(
-            children: [
-              // Page-Specific Dynamic Top Header Bar
-              _buildTopHeader(),
-              
-              // Main Tab View Content
-              Expanded(
-                child: IndexedStack(
-                  index: _currentIndex,
-                  children: [
-                    _buildHomeTab(),
-                    _buildPOSTab(),
-                    _buildOrderTab(),
-                    _buildSettingTab(),
-                  ],
                 ),
-              ),
-            ],
-          ),
-        ],
-      ),
-      bottomNavigationBar: AnimatedBottomBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        items: [
-          AnimatedBottomBarItem(
-            icon: Icons.home_rounded,
-            activeIcon: Icons.home_rounded,
-            label: _t('ទំព័រដើម', 'Home'),
-          ),
-          AnimatedBottomBarItem(
-            icon: Icons.grid_view_rounded,
-            activeIcon: Icons.grid_view_rounded,
-            label: _t('លក់ (POS)', 'POS'),
-          ),
-          AnimatedBottomBarItem(
-            icon: Icons.receipt_long_rounded,
-            activeIcon: Icons.receipt_long_rounded,
-            label: _t('ការកុម្ម៉ង់', 'Order'),
-          ),
-          AnimatedBottomBarItem(
-            icon: Icons.settings_rounded,
-            activeIcon: Icons.settings_rounded,
-            label: _t('ការកំណត់', 'Setting'),
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
+        bottomNavigationBar: AnimatedBottomBar(
+          currentIndex: _currentIndex,
+          onTap: (index) => setState(() => _currentIndex = index),
+          items: [
+            AnimatedBottomBarItem(
+              icon: Icons.home_rounded,
+              activeIcon: Icons.home_rounded,
+              label: _t('ទំព័រដើម', 'Home'),
+            ),
+            AnimatedBottomBarItem(
+              icon: Icons.grid_view_rounded,
+              activeIcon: Icons.grid_view_rounded,
+              label: _t('លក់ (POS)', 'POS'),
+            ),
+            AnimatedBottomBarItem(
+              icon: Icons.receipt_long_rounded,
+              activeIcon: Icons.receipt_long_rounded,
+              label: _t('ការកុម្ម៉ង់', 'Order'),
+            ),
+            AnimatedBottomBarItem(
+              icon: Icons.settings_rounded,
+              activeIcon: Icons.settings_rounded,
+              label: _t('ការកំណត់', 'Setting'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -417,33 +355,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 16.0),
                   
-                  // Option 1: Khmer (Default)
-                  _buildLanguageOptionTile(
-                    flagEmoji: '🇰🇭',
-                    title: 'Khmer',
-                    nativeName: 'ភាសាខ្មែរ (Default)',
-                    isSelected: selectedLanguage == 'Khmer',
-                    onTap: () {
-                      setState(() {
-                        _selectedLanguage = 'Khmer';
-                      });
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('បានប្តូរទៅជាភាសាខ្មែរ (Language changed to Khmer)'),
-                          backgroundColor: AppColors.primary,
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 10.0),
-
-                  // Option 2: English (US)
+                  // Option 1: English (Default)
                   _buildLanguageOptionTile(
                     flagEmoji: '🇬🇧',
                     title: 'English',
-                    nativeName: 'English (US)',
+                    nativeName: 'English (Default)',
                     isSelected: selectedLanguage == 'English',
                     onTap: () {
                       setState(() {
@@ -453,6 +369,28 @@ class _HomeScreenState extends State<HomeScreen> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Language updated to English'),
+                          backgroundColor: AppColors.primary,
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 10.0),
+
+                  // Option 2: Khmer
+                  _buildLanguageOptionTile(
+                    flagEmoji: '🇰🇭',
+                    title: 'Khmer',
+                    nativeName: 'ភាសាខ្មែរ',
+                    isSelected: selectedLanguage == 'Khmer',
+                    onTap: () {
+                      setState(() {
+                        _selectedLanguage = 'Khmer';
+                      });
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('បានប្តូរទៅជាភាសាខ្មែរ (Language changed to Khmer)'),
                           backgroundColor: AppColors.primary,
                           duration: Duration(seconds: 2),
                         ),
@@ -527,49 +465,236 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Page-Specific Header Bar (Home, POS, Order, Setting)
-  Widget _buildTopHeader() {
-    final double statusBarHeight = MediaQuery.of(context).padding.top;
-    
-    // TAB 0: Home Page Header (Transparent over background gradient)
-    if (_currentIndex == 0) {
-      return Container(
-        padding: EdgeInsets.fromLTRB(20.0, statusBarHeight + 12.0, 20.0, 16.0),
-        color: Colors.transparent,
+  // Helper to show Theme / Dark Mode selection bottom sheet
+  void _showAppearanceBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              decoration: BoxDecoration(
+                color: _isDarkMode ? const Color(0xFF1E293B) : AppColors.surface,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24.0)),
+              ),
+              padding: const EdgeInsets.fromLTRB(24.0, 20.0, 24.0, 24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: _isDarkMode ? Colors.white24 : AppColors.borderLight,
+                        borderRadius: BorderRadius.circular(2.0),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16.0),
+                  Text(
+                    _t('ជ្រើសរើសរូបរាង (Appearance)', 'Appearance & Theme'),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: _isDarkMode ? Colors.white : AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4.0),
+                  Text(
+                    _t('ជ្រើសរើសពន្លឺ ឬ របៀបងងឹតសម្រាប់កម្មវិធី', 'Choose your preferred app theme mode'),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _isDarkMode ? const Color(0xFF94A3B8) : AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 20.0),
+                  
+                  // Option 1: Light Mode
+                  _buildThemeOptionTile(
+                    icon: Icons.light_mode_rounded,
+                    title: _t('ពន្លឺ (Light Mode)', 'Light Mode'),
+                    subtitle: _t('ផ្ទៃសរលោង SaaS Flat Clean Aesthetic', 'Clean, bright & minimal SaaS aesthetic'),
+                    isSelected: !_isDarkMode,
+                    onTap: () {
+                      setState(() {
+                        _isDarkMode = false;
+                      });
+                      setSheetState(() {});
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(_t('បានប្តូរទៅ Light Mode', 'Theme switched to Light Mode')),
+                          backgroundColor: AppColors.primary,
+                          duration: const Duration(seconds: 1),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12.0),
+
+                  // Option 2: Dark Mode
+                  _buildThemeOptionTile(
+                    icon: Icons.dark_mode_rounded,
+                    title: _t('របៀបងងឹត (Dark Mode)', 'Dark Mode'),
+                    subtitle: _t('ផ្ទៃងងឹត ស្រួលភ្នែកពេលយប់ Deep Slate Navy', 'High-contrast dark mode for low-light environments'),
+                    isSelected: _isDarkMode,
+                    onTap: () {
+                      setState(() {
+                        _isDarkMode = true;
+                      });
+                      setSheetState(() {});
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(_t('បានប្តូរទៅ Dark Mode', 'Theme switched to Dark Mode')),
+                          backgroundColor: AppColors.primary,
+                          duration: const Duration(seconds: 1),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 16.0),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildThemeOptionTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final Color itemBg = _isDarkMode 
+        ? (isSelected ? const Color(0xFF0F2B66) : const Color(0xFF0F172A))
+        : (isSelected ? AppColors.primaryLight : AppColors.surface);
+    final Color itemBorder = isSelected ? AppColors.primary : (_isDarkMode ? Colors.white12 : AppColors.borderLight);
+    final Color iconColor = isSelected ? (_isDarkMode ? Colors.white : AppColors.primary) : (_isDarkMode ? Colors.white70 : AppColors.textSecondary);
+    final Color titleColor = _isDarkMode ? Colors.white : AppColors.textPrimary;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16.0),
+        decoration: BoxDecoration(
+          color: itemBg,
+          borderRadius: BorderRadius.circular(16.0),
+          border: Border.all(
+            color: itemBorder,
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(
               children: [
                 Container(
-                  width: 48,
-                  height: 48,
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppColors.primary.withOpacity(0.2) : Colors.black.withOpacity(0.04),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: iconColor, size: 20),
+                ),
+                const SizedBox(width: 12.0),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: titleColor,
+                      ),
+                    ),
+                    const SizedBox(height: 2.0),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: _isDarkMode ? Colors.white60 : AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            if (isSelected)
+              const Icon(
+                Icons.check_circle_rounded,
+                color: AppColors.success,
+                size: 22,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Page-Specific Header Bar (Home, POS, Order, Setting)
+  Widget _buildTopHeader() {
+    final double statusBarHeight = MediaQuery.of(context).padding.top;
+    
+    final Color headerBgColor = _isDarkMode ? const Color(0xFF0F172A) : AppColors.background;
+    final Color headerTitleColor = _isDarkMode ? Colors.white : AppColors.heading;
+    final Color headerSubtitleColor = _isDarkMode ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+    final Color headerCardBg = _isDarkMode ? const Color(0xFF1E293B) : AppColors.surface;
+    final Color headerBorderColor = _isDarkMode ? const Color(0xFF334155) : AppColors.borderLight;
+    final Color headerIconBg = _isDarkMode ? const Color(0xFF0F2B66) : AppColors.primaryLight;
+    final Color headerIconColor = _isDarkMode ? const Color(0xFF5CC8FF) : AppColors.primary;
+    
+    // TAB 0: Home Page Header
+    if (_currentIndex == 0) {
+      return Container(
+        padding: EdgeInsets.fromLTRB(24.0, statusBarHeight + 12.0, 24.0, 16.0),
+        color: headerBgColor,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                // Compact 38x38 avatar
+                Container(
+                  width: 38,
+                  height: 38,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(0.2),
-                    border: Border.all(color: Colors.white.withOpacity(0.4), width: 2.0),
+                    color: headerCardBg,
+                    border: Border.all(color: headerBorderColor, width: 1.2),
                   ),
                   child: ClipOval(
                     child: _merchantImageUrl != null && _merchantImageUrl!.isNotEmpty
                         ? Image.network(
                             _merchantImageUrl!,
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => const Icon(
+                            errorBuilder: (context, error, stackTrace) => Icon(
                               Icons.person_rounded,
-                              color: Colors.white,
-                              size: 24,
+                              color: headerTitleColor,
+                              size: 20,
                             ),
                           )
                         : Image.network(
                             'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => const Center(
+                            errorBuilder: (context, error, stackTrace) => Center(
                               child: Text(
                                 'US',
                                 style: TextStyle(
-                                  fontSize: 16,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.white,
+                                  color: headerTitleColor,
                                 ),
                               ),
                             ),
@@ -580,19 +705,56 @@ class _HomeScreenState extends State<HomeScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      _t('សួស្តី ${_merchantName.split(" ").first}', 'Hello ${_merchantName.split(" ").first}'),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+                    Row(
+                      children: [
+                        Text(
+                          _t('សួស្តី ${_merchantName.split(" ").first}', 'Hello ${_merchantName.split(" ").first}'),
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: headerTitleColor,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Store Open badge
+                        // Container(
+                        //   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        //   decoration: BoxDecoration(
+                        //     color: badgeBg,
+                        //     borderRadius: BorderRadius.circular(12),
+                        //     border: Border.all(color: badgeText.withOpacity(0.3), width: 0.8),
+                        //   ),
+                        //   child: Row(
+                        //     children: [
+                        //       Container(
+                        //         width: 6,
+                        //         height: 6,
+                        //         decoration: BoxDecoration(
+                        //           color: badgeText,
+                        //           shape: BoxShape.circle,
+                        //         ),
+                        //       ),
+                        //       const SizedBox(width: 4),
+                        //       Text(
+                        //         _t('ហាងបើក', 'Store Open'),
+                        //         style: TextStyle(
+                        //           fontSize: 10,
+                        //           color: badgeText,
+                        //           fontWeight: FontWeight.bold,
+                        //         ),
+                        //       ),
+                        //     ],
+                        //   ),
+                        // ),
+                      ],
                     ),
+                    const SizedBox(height: 2),
                     Text(
                       _t('លេខសម្គាល់អាជីវករ: #9841', 'Merchant ID: #9841'),
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.white.withOpacity(0.8),
+                        color: headerSubtitleColor,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -600,12 +762,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
-            AppIconButton(
-              icon: Icons.language_rounded,
-              iconColor: Colors.white,
-              backgroundColor: Colors.white.withOpacity(0.15),
-              border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.0),
-              onPressed: _showLanguageSelectionSheet,
+            // Language Button: circular flag icon showing active flag
+            GestureDetector(
+              onTap: _showLanguageSelectionSheet,
+              child: Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: headerCardBg,
+                  borderRadius: BorderRadius.circular(21.0),
+                  border: Border.all(color: headerBorderColor, width: 1.0),
+                ),
+                child: Center(
+                  child: Text(
+                    selectedLanguage == 'English' ? '🇬🇧' : '🇰🇭',
+                    style: const TextStyle(fontSize: 20),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -658,7 +832,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Container(
       padding: EdgeInsets.fromLTRB(20.0, statusBarHeight + 12.0, 20.0, 12.0),
-      color: Colors.transparent,
+      color: headerBgColor,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -668,10 +842,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
+                  color: headerIconBg,
                   borderRadius: BorderRadius.circular(12.0),
                 ),
-                child: Icon(headerIcon, color: AppColors.primary, size: 22),
+                child: Icon(headerIcon, color: headerIconColor, size: 22),
               ),
               const SizedBox(width: 14.0),
               Column(
@@ -679,18 +853,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
+                      color: headerTitleColor,
                     ),
                   ),
                   const SizedBox(height: 2.0),
                   Text(
                     subtitle,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: AppColors.textSecondary,
+                      color: headerSubtitleColor,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -700,9 +874,9 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           AppIconButton(
             icon: actionIcon,
-            iconColor: AppColors.textPrimary,
-            backgroundColor: AppColors.surface,
-            border: Border.all(color: AppColors.borderLight, width: 1.0),
+            iconColor: headerTitleColor,
+            backgroundColor: headerCardBg,
+            border: Border.all(color: headerBorderColor, width: 1.0),
             onPressed: onActionPressed,
           ),
         ],
@@ -713,274 +887,391 @@ class _HomeScreenState extends State<HomeScreen> {
   // TAB 1: Home Tab (Sales Report, Quick Actions, Products List, Today's Orders)
   // TAB 1: Home Tab (Sales Report, Quick Actions, Products List, Today's Orders)
   Widget _buildHomeTab() {
+    if (_isLoadingData) {
+      return const HomeSkeleton();
+    }
+
     final recentOrders = ordersList.take(5).toList();
 
-    return CustomScrollView(
-      physics: const BouncingScrollPhysics(
-        parent: AlwaysScrollableScrollPhysics(),
-      ),
-      slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20.0, 20.0, 20.0, 0.0),
-          sliver: SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 1. Sales Report Card (Revenue Balance + Quick Stats)
-                GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ReportDashboardScreen(),
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      color: AppColors.primary,
+      backgroundColor: AppColors.surface,
+      child: CustomScrollView(
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20.0, 20.0, 20.0, 0.0),
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 1. Sales Report Card (Sleek Dark Slate Charcoal Card - Minimalist SaaS Style)
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ReportDashboardScreen(),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0xFF1E293B),
+                            Color(0xFF0F172A),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(22.0),
+                        border: Border.all(
+                          color: const Color(0xFF334155),
+                          width: 1.0,
+                        ),
                       ),
-                    );
-                  },
-                  child: AppCard(
-                    isDark: true,
-                    padding: const EdgeInsets.all(20.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      child: Padding(
+                        padding: const EdgeInsets.all(22.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              _t('សមតុល្យចំណូលលក់', 'Sales Revenue Balance'),
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.white70,
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.circle, color: AppColors.success, size: 8),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    _t('របាយការណ៍ផ្ទាល់', 'Live Report'),
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
+                            // Header Row: Wallet Icon + Title & Live Badge
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(10),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: const Icon(
+                                        Icons.account_balance_wallet_rounded,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          _t('សមតុល្យចំណូលលក់', 'Sales Revenue'),
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.white,
+                                            letterSpacing: -0.2,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          _t('ចំណូលសរុបហាង', 'Total Store Earnings'),
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.white.withOpacity(0.70),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                // Live Report Chip
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.10),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.20),
+                                      width: 0.8,
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12.0),
-                        Text(
-                          '\$${(_totalSalesRevenue ?? 0.0).toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            letterSpacing: -1.0,
-                          ),
-                        ),
-                        const SizedBox(height: 16.0),
-                        Divider(color: Colors.white.withOpacity(0.15), thickness: 1.0),
-                        const SizedBox(height: 12.0),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              _t('ធ្វើបច្ចុប្បន្នភាព 1 នាទីមុន', 'Last updated 1 min ago'),
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Colors.white60,
-                              ),
-                            ),
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.pie_chart_rounded,
-                                  color: Colors.white70,
-                                  size: 16,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        width: 6,
+                                        height: 6,
+                                        decoration: const BoxDecoration(
+                                          color: Color(0xFF16C784),
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        _t('ផ្ទាល់', 'Live'),
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: Color(0xFF16C784),
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                const SizedBox(width: 4),
+                              ],
+                            ),
+                            const SizedBox(height: 20.0),
+
+                            // Revenue Balance Value + Green Growth Chip Row
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.baseline,
+                              textBaseline: TextBaseline.alphabetic,
+                              children: [
                                 Text(
-                                  _t('មើលផ្ទាំងគ្រប់គ្រង', 'View Pie Dashboard'),
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white.withOpacity(0.9),
+                                  '\$${_totalSalesRevenue.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    fontSize: 34,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                    letterSpacing: -1.0,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE8F9F1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.arrow_upward_rounded, color: Color(0xFF16C784), size: 14),
+                                      SizedBox(width: 3),
+                                      Text(
+                                        '+14.8%',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF16C784),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 18.0),
+                            Divider(
+                              color: Colors.white.withOpacity(0.12),
+                              thickness: 1.0,
+                            ),
+                            const SizedBox(height: 12.0),
+
+                            // Footer with Time & White View Dashboard CTA Button
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.access_time_rounded,
+                                      size: 14,
+                                      color: Colors.white.withOpacity(0.70),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      _t('ធ្វើបច្ចុប្បន្នភាព 1 នាទីមុន', 'Updated 1 min ago'),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.white.withOpacity(0.75),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(18),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        _t('មើលផ្ទាំងគ្រប់គ្រង', 'View Dashboard'),
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF0F172A),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 5),
+                                      const Icon(
+                                        Icons.arrow_forward_rounded,
+                                        color: Color(0xFF0F172A),
+                                        size: 14,
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
                           ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16.0),
+                  const SizedBox(height: 20.0),
 
-                // Stat Cards Grid (Sales Today & Transactions Count)
-                Row(
-                  children: [
-                    Expanded(
-                      child: StatCard(
-                        icon: Icons.trending_up_rounded,
-                        label: _t('ការលក់ថ្ងៃនេះ', 'Sales Today'),
-                        value: '\$${(_salesToday ?? 0.0).toStringAsFixed(2)}',
-                        trendText: '+8.2%',
-                        isTrendPositive: true,
-                      ),
-                    ),
-                    const SizedBox(width: 16.0),
-                    Expanded(
-                      child: StatCard(
-                        icon: Icons.receipt_long_rounded,
-                        label: _t('ការកុម្ម៉ង់ថ្ងៃនេះ', 'Today\'s Orders'),
-                        value: _t('${_ordersTodayCount ?? 0} ការកុម្ម៉ង់', '${_ordersTodayCount ?? 0} Orders'),
-                        trendText: '+4.5%',
-                        isTrendPositive: true,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24.0),
-
-                // 2. Quick Pages & Actions Grid
-                Text(
-                  _t('សកម្មភាពរហ័ស', 'Quick Actions'),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 12.0),
-                Row(
-                  children: [
-                    _buildQuickActionTile(
-                      icon: Icons.point_of_sale_rounded,
-                      label: _t('ស្ថានីយ POS', 'POS Terminal'),
-                      color: const Color(0xFF2563EB),
-                      bgColor: const Color(0xFFEFF6FF),
-                      onTap: () => setState(() => _currentIndex = 1),
-                    ),
-                    const SizedBox(width: 12),
-                    _buildQuickActionTile(
-                      icon: Icons.inventory_2_rounded,
-                      label: _t('ផលិតផល', 'Products'),
-                      color: const Color(0xFF10B981),
-                      bgColor: const Color(0xFFD1FAE5),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ManageProductsScreen(
-                              products: _products,
-                              categories: _categories,
-                              posQuantities: _posQuantities,
-                            ),
-                          ),
-                        ).then((_) => setState(() {}));
-                      },
-                    ),
-                    const SizedBox(width: 12),
-                    _buildQuickActionTile(
-                      icon: Icons.category_rounded,
-                      label: _t('ប្រភេទទំនិញ', 'Categories'),
-                      color: const Color(0xFF8B5CF6),
-                      bgColor: const Color(0xFFF3E8FF),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ManageCategoriesScreen(
-                              categories: _categories,
-                              products: _products,
-                            ),
-                          ),
-                        ).then((_) => setState(() {}));
-                      },
-                    ),
-                    const SizedBox(width: 12),
-                    _buildQuickActionTile(
-                      icon: Icons.receipt_long_rounded,
-                      label: _t('ការកុម្ម៉ង់', 'Orders'),
-                      color: const Color(0xFFF59E0B),
-                      bgColor: const Color(0xFFFEF3C7),
-                      onTap: () => setState(() => _currentIndex = 2),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24.0),
-
-                // 3. Today's Orders List Header
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      _t('ការកុម្ម៉ង់ថ្ងៃនេះ', 'Today\'s Orders'),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => setState(() => _currentIndex = 2),
-                      child: Text(
-                        _t('មើលទាំងអស់', 'View All'),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
+                  // Stat Cards Grid (Sales Today & Transactions Count)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: StatCard(
+                          icon: Icons.trending_up_rounded,
+                          label: _t('ការលក់ថ្ងៃនេះ', 'Sales Today'),
+                          value: '\$${_salesToday.toStringAsFixed(2)}',
+                          trendText: '+8.2%',
+                          isTrendPositive: true,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12.0),
-              ],
-            ),
-          ),
-        ),
-
-        // Lazy-loaded Slivers list for Today's Orders
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0),
-          sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final order = recentOrders[index];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12.0),
-                  child: ListItemCard(
-                    title: order.title,
-                    subtitle: order.subtitle,
-                    trailingTitle: order.amount,
-                    trailingSubtitle: order.status,
-                    leadingIcon: order.icon,
-                    leadingBgColor: order.leadingBgColor,
-                    leadingIconColor: order.leadingIconColor,
-                    isPositive: order.isPositive,
+                      const SizedBox(width: 16.0),
+                      Expanded(
+                        child: StatCard(
+                          icon: Icons.receipt_long_rounded,
+                          label: _t('ការកុម្ម៉ង់ថ្ងៃនេះ', 'Today\'s Orders'),
+                          value: _t('$_ordersTodayCount ការកុម្ម៉ង់', '$_ordersTodayCount Orders'),
+                          trendText: '+4.5%',
+                          isTrendPositive: true,
+                        ),
+                      ),
+                    ],
                   ),
-                );
-              },
-              childCount: recentOrders.length,
+                  const SizedBox(height: 24.0),
+
+                  // 2. Quick Pages & Actions Grid
+                  Text(
+                    _t('សកម្មភាពរហ័ស', 'Quick Actions'),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: _isDarkMode ? Colors.white : AppColors.heading,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 14.0),
+                  Row(
+                    children: [
+                      _buildQuickActionTile(
+                        icon: Icons.inventory_2_rounded,
+                        label: _t('ផលិតផល', 'Products'),
+                        color: AppColors.primary,
+                        bgColor: const Color(0xFFEEF5FB),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ManageProductsScreen(
+                                products: _products,
+                                categories: _categories,
+                                posQuantities: _posQuantities,
+                              ),
+                            ),
+                          ).then((_) => setState(() {}));
+                        },
+                      ),
+                      const SizedBox(width: 12),
+                      _buildQuickActionTile(
+                        icon: Icons.category_rounded,
+                        label: _t('ប្រភេទទំនិញ', 'Categories'),
+                        color: AppColors.primary,
+                        bgColor: const Color(0xFFEEF5FB),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ManageCategoriesScreen(
+                                categories: _categories,
+                                products: _products,
+                              ),
+                            ),
+                          ).then((_) => setState(() {}));
+                        },
+                      ),
+                      const SizedBox(width: 12),
+                      _buildQuickActionTile(
+                        icon: Icons.receipt_long_rounded,
+                        label: _t('ការកុម្ម៉ង់', 'Orders'),
+                        color: AppColors.primary,
+                        bgColor: const Color(0xFFEEF5FB),
+                        onTap: () => setState(() => _currentIndex = 2),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24.0),
+
+                  // 3. Today's Orders List Header
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _t('ការកុម្ម៉ង់ថ្ងៃនេះ', 'Today\'s Orders'),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: _isDarkMode ? Colors.white : AppColors.textPrimary,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => setState(() => _currentIndex = 2),
+                        child: Text(
+                          _t('មើលទាំងអស់', 'View All'),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: _isDarkMode ? const Color(0xFF5CC8FF) : AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12.0),
+                ],
+              ),
             ),
           ),
-        ),
 
-        // Bottom spacing padding sliver
-        const SliverToBoxAdapter(
-          child: SizedBox(height: 24.0),
-        ),
-      ],
+          // Lazy-loaded Slivers list for Today's Orders
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final order = recentOrders[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12.0),
+                    child: ListItemCard(
+                      title: order.title,
+                      subtitle: order.subtitle,
+                      trailingTitle: order.amount,
+                      trailingSubtitle: order.status,
+                      leadingIcon: order.icon,
+                      leadingBgColor: order.leadingBgColor,
+                      leadingIconColor: order.leadingIconColor,
+                      isPositive: order.isPositive,
+                    ),
+                  );
+                },
+                childCount: recentOrders.length,
+              ),
+            ),
+          ),
+
+          // Bottom spacing padding sliver
+          const SliverToBoxAdapter(
+            child: SizedBox(height: 24.0),
+          ),
+        ],
+      ),
     );
   }
 
@@ -991,35 +1282,41 @@ class _HomeScreenState extends State<HomeScreen> {
     required Color bgColor,
     required VoidCallback onTap,
   }) {
+    final Color tileBg = _isDarkMode ? const Color(0xFF1E293B) : AppColors.surface;
+    final Color tileBorder = _isDarkMode ? const Color(0xFF334155) : AppColors.borderLight;
+    final Color effectiveIconBg = _isDarkMode ? const Color(0xFF0F2B66) : bgColor;
+    final Color effectiveIconColor = _isDarkMode ? const Color(0xFF5CC8FF) : color;
+    final Color labelColor = _isDarkMode ? Colors.white : AppColors.heading;
+
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14.0, horizontal: 8.0),
+          padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 10.0),
           decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(16.0),
-            boxShadow: AppColors.softShadow,
-            border: Border.all(color: AppColors.borderLight.withOpacity(0.6), width: 1.0),
+            color: tileBg,
+            borderRadius: BorderRadius.circular(20.0),
+            border: Border.all(color: tileBorder, width: 1.0),
           ),
           child: Column(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                  color: bgColor,
-                  borderRadius: BorderRadius.circular(12.0),
+                  color: effectiveIconBg,
+                  borderRadius: BorderRadius.circular(14.0),
                 ),
-                child: Icon(icon, color: color, size: 20),
+                child: Icon(icon, color: effectiveIconColor, size: 22),
               ),
-              const SizedBox(height: 8.0),
+              const SizedBox(height: 10.0),
               Text(
                 label,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: labelColor,
+                  letterSpacing: -0.2,
                 ),
                 textAlign: TextAlign.center,
                 maxLines: 1,
@@ -1054,9 +1351,9 @@ class _HomeScreenState extends State<HomeScreen> {
             final double calculatedPrice = product.price + variantPrice + addOnsPrice;
 
             return Container(
-              decoration: const BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24.0)),
+              decoration: BoxDecoration(
+                color: _isDarkMode ? const Color(0xFF1E293B) : AppColors.surface,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24.0)),
               ),
               padding: const EdgeInsets.fromLTRB(24.0, 20.0, 24.0, 24.0),
               child: SingleChildScrollView(
@@ -1069,7 +1366,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         width: 40,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: AppColors.borderLight,
+                          color: _isDarkMode ? const Color(0xFF334155) : AppColors.borderLight,
                           borderRadius: BorderRadius.circular(2.0),
                         ),
                       ),
@@ -1084,10 +1381,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               width: 44,
                               height: 44,
                               decoration: BoxDecoration(
-                                color: AppColors.primaryLight,
+                                color: _isDarkMode ? const Color(0xFF0F2B66) : AppColors.primaryLight,
                                 borderRadius: BorderRadius.circular(12.0),
                               ),
-                              child: Icon(product.icon, color: AppColors.primary, size: 22),
+                              child: Icon(product.icon, color: _isDarkMode ? const Color(0xFF5CC8FF) : AppColors.primary, size: 22),
                             ),
                             const SizedBox(width: 12.0),
                             Column(
@@ -1095,17 +1392,17 @@ class _HomeScreenState extends State<HomeScreen> {
                               children: [
                                 Text(
                                   product.name,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 17,
                                     fontWeight: FontWeight.bold,
-                                    color: AppColors.textPrimary,
+                                    color: _isDarkMode ? Colors.white : AppColors.textPrimary,
                                   ),
                                 ),
                                 Text(
                                   _t('តម្លៃដើម: \$${product.price.toStringAsFixed(2)}', 'Base Price: \$${product.price.toStringAsFixed(2)}'),
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
-                                    color: AppColors.textSecondary,
+                                    color: _isDarkMode ? const Color(0xFF94A3B8) : AppColors.textSecondary,
                                   ),
                                 ),
                               ],
@@ -1115,16 +1412,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
                           decoration: BoxDecoration(
-                            color: AppColors.primaryLight,
+                            color: _isDarkMode ? const Color(0xFF0F2B66) : AppColors.primaryLight,
                             borderRadius: BorderRadius.circular(20.0),
-                            border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                            border: Border.all(color: _isDarkMode ? const Color(0xFF5CC8FF).withOpacity(0.3) : AppColors.primary.withOpacity(0.2)),
                           ),
                           child: Text(
                             '\$${calculatedPrice.toStringAsFixed(2)}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
+                              color: _isDarkMode ? const Color(0xFF5CC8FF) : AppColors.primary,
                             ),
                           ),
                         ),
@@ -1136,16 +1433,29 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (product.variants.isNotEmpty) ...[
                       Text(
                         _t('ជម្រើសទំហំ / ការឆុង (Variant)', 'Size / Serving Variant'),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                          color: _isDarkMode ? Colors.white : AppColors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 10.0),
                       Column(
                         children: product.variants.map((v) {
                           final isSelected = activeVariant?.name == v.name;
+                          final Color cardBg = isSelected 
+                              ? (_isDarkMode ? const Color(0xFF0F2B66) : AppColors.primaryLight) 
+                              : (_isDarkMode ? const Color(0xFF0F172A) : AppColors.surface);
+                          final Color cardBorder = isSelected 
+                              ? (_isDarkMode ? const Color(0xFF5CC8FF) : AppColors.primary) 
+                              : (_isDarkMode ? const Color(0xFF334155) : AppColors.borderLight);
+                          final Color cardTitle = isSelected 
+                              ? (_isDarkMode ? const Color(0xFF5CC8FF) : AppColors.primary) 
+                              : (_isDarkMode ? Colors.white : AppColors.textPrimary);
+                          final Color cardSub = isSelected 
+                              ? (_isDarkMode ? const Color(0xFF5CC8FF) : AppColors.primary) 
+                              : (_isDarkMode ? const Color(0xFF94A3B8) : AppColors.textSecondary);
+
                           return GestureDetector(
                             onTap: () {
                               setSheetState(() {
@@ -1156,10 +1466,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               margin: const EdgeInsets.only(bottom: 8.0),
                               padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
                               decoration: BoxDecoration(
-                                color: isSelected ? AppColors.primaryLight : AppColors.surface,
+                                color: cardBg,
                                 borderRadius: BorderRadius.circular(12.0),
                                 border: Border.all(
-                                  color: isSelected ? AppColors.primary : AppColors.borderLight,
+                                  color: cardBorder,
                                   width: isSelected ? 1.5 : 1.0,
                                 ),
                               ),
@@ -1171,7 +1481,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       Icon(
                                         isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
                                         size: 18,
-                                        color: isSelected ? AppColors.primary : AppColors.textMuted,
+                                        color: cardTitle,
                                       ),
                                       const SizedBox(width: 10.0),
                                       Text(
@@ -1179,7 +1489,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         style: TextStyle(
                                           fontSize: 13,
                                           fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                          color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                                          color: cardTitle,
                                         ),
                                       ),
                                     ],
@@ -1189,7 +1499,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
-                                      color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                                      color: cardSub,
                                     ),
                                   ),
                                 ],
@@ -1205,10 +1515,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (product.sugarLevels.isNotEmpty) ...[
                       Text(
                         _t('កម្រិតស្ករ (Sugar Level %)', 'Sugar Level Percent'),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                          color: _isDarkMode ? Colors.white : AppColors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 10.0),
@@ -1217,6 +1527,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Row(
                           children: product.sugarLevels.map((sugar) {
                             final isSelected = activeSugar == sugar;
+                            final Color chipBg = isSelected 
+                                ? AppColors.primary 
+                                : (_isDarkMode ? const Color(0xFF0F172A) : AppColors.surface);
+                            final Color chipBorder = isSelected 
+                                ? AppColors.primary 
+                                : (_isDarkMode ? const Color(0xFF334155) : AppColors.borderLight);
+                            final Color chipText = isSelected 
+                                ? Colors.white 
+                                : (_isDarkMode ? const Color(0xFF94A3B8) : AppColors.textSecondary);
+
                             return Padding(
                               padding: const EdgeInsets.only(right: 8.0),
                               child: GestureDetector(
@@ -1228,10 +1548,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
                                   decoration: BoxDecoration(
-                                    color: isSelected ? AppColors.primary : AppColors.surface,
+                                    color: chipBg,
                                     borderRadius: BorderRadius.circular(20.0),
                                     border: Border.all(
-                                      color: isSelected ? AppColors.primary : AppColors.borderLight,
+                                      color: chipBorder,
                                       width: 1.0,
                                     ),
                                   ),
@@ -1240,7 +1560,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                                      color: isSelected ? Colors.white : AppColors.textSecondary,
+                                      color: chipText,
                                     ),
                                   ),
                                 ),
@@ -1256,16 +1576,29 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (product.availableAddOns.isNotEmpty) ...[
                       Text(
                         _t('បន្ថែមកាហ្វេ ឬ គ្រឿងផ្សំ (Add Extra Shot / Add-Ons)', 'Add Extra Shot & Add-Ons'),
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                          color: _isDarkMode ? Colors.white : AppColors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 10.0),
                       Column(
                         children: product.availableAddOns.map((addOn) {
                           final isChecked = activeAddOns.any((a) => a.name == addOn.name);
+                          final Color cardBg = isChecked 
+                              ? (_isDarkMode ? const Color(0xFF0F2B66) : AppColors.primaryLight) 
+                              : (_isDarkMode ? const Color(0xFF0F172A) : AppColors.surface);
+                          final Color cardBorder = isChecked 
+                              ? (_isDarkMode ? const Color(0xFF5CC8FF) : AppColors.primary) 
+                              : (_isDarkMode ? const Color(0xFF334155) : AppColors.borderLight);
+                          final Color cardTitle = isChecked 
+                              ? (_isDarkMode ? const Color(0xFF5CC8FF) : AppColors.primary) 
+                              : (_isDarkMode ? Colors.white : AppColors.textPrimary);
+                          final Color cardSub = isChecked 
+                              ? (_isDarkMode ? const Color(0xFF5CC8FF) : AppColors.primary) 
+                              : (_isDarkMode ? const Color(0xFF94A3B8) : AppColors.textSecondary);
+
                           return GestureDetector(
                             onTap: () {
                               setSheetState(() {
@@ -1280,10 +1613,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               margin: const EdgeInsets.only(bottom: 8.0),
                               padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
                               decoration: BoxDecoration(
-                                color: isChecked ? AppColors.primaryLight : AppColors.surface,
+                                color: cardBg,
                                 borderRadius: BorderRadius.circular(12.0),
                                 border: Border.all(
-                                  color: isChecked ? AppColors.primary : AppColors.borderLight,
+                                  color: cardBorder,
                                   width: isChecked ? 1.5 : 1.0,
                                 ),
                               ),
@@ -1295,7 +1628,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       Icon(
                                         isChecked ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
                                         size: 20,
-                                        color: isChecked ? AppColors.primary : AppColors.textMuted,
+                                        color: cardTitle,
                                       ),
                                       const SizedBox(width: 10.0),
                                       Text(
@@ -1303,7 +1636,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         style: TextStyle(
                                           fontSize: 13,
                                           fontWeight: isChecked ? FontWeight.bold : FontWeight.w500,
-                                          color: isChecked ? AppColors.primary : AppColors.textPrimary,
+                                          color: cardTitle,
                                         ),
                                       ),
                                     ],
@@ -1313,7 +1646,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.bold,
-                                      color: isChecked ? AppColors.primary : AppColors.textSecondary,
+                                      color: cardSub,
                                     ),
                                   ),
                                 ],
@@ -1374,10 +1707,18 @@ class _HomeScreenState extends State<HomeScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
+        final Color sheetBg = _isDarkMode ? const Color(0xFF1E293B) : AppColors.surface;
+        final Color textTitle = _isDarkMode ? Colors.white : AppColors.textPrimary;
+        final Color textSub = _isDarkMode ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+        final Color dividerColor = _isDarkMode ? const Color(0xFF334155) : AppColors.borderLight;
+        final Color iconBg = _isDarkMode ? const Color(0xFF0F2B66) : AppColors.primaryLight;
+        final Color iconColor = _isDarkMode ? const Color(0xFF5CC8FF) : AppColors.primary;
+        final Color totalColor = _isDarkMode ? const Color(0xFF5CC8FF) : AppColors.primary;
+
         return Container(
-          decoration: const BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24.0)),
+          decoration: BoxDecoration(
+            color: sheetBg,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24.0)),
           ),
           padding: const EdgeInsets.fromLTRB(24.0, 20.0, 24.0, 24.0),
           child: Column(
@@ -1389,7 +1730,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AppColors.borderLight,
+                    color: dividerColor,
                     borderRadius: BorderRadius.circular(2.0),
                   ),
                 ),
@@ -1406,10 +1747,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         width: 44,
                         height: 44,
                         decoration: BoxDecoration(
-                          color: AppColors.primaryLight,
+                          color: iconBg,
                           borderRadius: BorderRadius.circular(12.0),
                         ),
-                        child: const Icon(Icons.receipt_long_rounded, color: AppColors.primary, size: 24),
+                        child: Icon(Icons.receipt_long_rounded, color: iconColor, size: 24),
                       ),
                       const SizedBox(width: 12.0),
                       Column(
@@ -1417,17 +1758,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           Text(
                             _t('វិក្កយបត្រ #$orderId', 'Invoice #$orderId'),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
+                              color: textTitle,
                             ),
                           ),
                           Text(
                             _t('ហាងកាហ្វេ និង នំប៉័ង POS • ស្ថានីយ #1', 'Coffee & Bakery POS • Terminal #1'),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
-                              color: AppColors.textSecondary,
+                              color: textSub,
                             ),
                           ),
                         ],
@@ -1452,7 +1793,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
               const SizedBox(height: 16.0),
-              const Divider(color: AppColors.borderLight, height: 1.0),
+              Divider(color: dividerColor, height: 1.0),
               const SizedBox(height: 16.0),
 
               // Items breakdown list
@@ -1467,28 +1808,28 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           Text(
                             '${item['qty']}x ${item['name']}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
+                              color: textTitle,
                             ),
                           ),
                           if (item['variant'] != null)
                             Text(
                               _t('ជម្រើស: ${item['variant']}', 'Variant: ${item['variant']}'),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
-                                color: AppColors.textSecondary,
+                                color: textSub,
                               ),
                             ),
                         ],
                       ),
                       Text(
                         '\$${(item['itemTotal'] as double).toStringAsFixed(2)}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                          color: textTitle,
                         ),
                       ),
                     ],
@@ -1497,33 +1838,33 @@ class _HomeScreenState extends State<HomeScreen> {
               }),
 
               const SizedBox(height: 12.0),
-              const Divider(color: AppColors.borderLight, height: 1.0),
+              Divider(color: dividerColor, height: 1.0),
               const SizedBox(height: 12.0),
 
               // Summary breakdown
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(_t('សរុបរង', 'Subtotal'), style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-                  Text('\$${totalAmount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                  Text(_t('សរុបរង', 'Subtotal'), style: TextStyle(fontSize: 13, color: textSub)),
+                  Text('\$${totalAmount.toStringAsFixed(2)}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textTitle)),
                 ],
               ),
               const SizedBox(height: 4.0),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(_t('ពន្ធ (8%)', 'Tax (8%)'), style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
-                  Text('\$${tax.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                  Text(_t('ពន្ធ (8%)', 'Tax (8%)'), style: TextStyle(fontSize: 13, color: textSub)),
+                  Text('\$${tax.toStringAsFixed(2)}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textTitle)),
                 ],
               ),
               const SizedBox(height: 8.0),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(_t('ចំនួនទឹកប្រាក់សរុប', 'Total Amount'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                  Text(_t('ចំនួនទឹកប្រាក់សរុប', 'Total Amount'), style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textTitle)),
                   Text(
                     '\$${grandTotal.toStringAsFixed(2)}',
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primary),
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: totalColor),
                   ),
                 ],
               ),
@@ -1590,307 +1931,363 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Column(
       children: [
-        // Scrollable Products Area with CustomScrollView
+        // Main Content Area: Left Sidebar (Categories) + Right Content (Product Cards Grid)
         Expanded(
-          child: CustomScrollView(
-            physics: const BouncingScrollPhysics(
-              parent: AlwaysScrollableScrollPhysics(),
-            ),
-            slivers: [
-              // Horizontal Category Pills Sliver
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 1. Left Vertical Category Navigation Sidebar (Compact 72px Width)
               if (_categories.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: Container(
-                    height: 48,
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                      itemCount: _categories.length + 1,
-                      itemBuilder: (context, index) {
-                        final isSelected = index == _selectedPOSCategoryIndex;
-                        final rawCategory = index == 0 ? 'All' : _categories[index - 1];
-                        final text = index == 0
-                            ? _t('ទាំងអស់', 'All')
-                            : (rawCategory == 'Coffee'
-                                ? _t('កាហ្វេ', 'Coffee')
-                                : rawCategory == 'Bakery'
-                                    ? _t('នំប៉័ង', 'Bakery')
-                                    : rawCategory);
+                Container(
+                  width: 72,
+                  decoration: BoxDecoration(
+                    color: _isDarkMode ? const Color(0xFF1E293B) : AppColors.surface,
+                    border: Border(
+                      right: BorderSide(
+                        color: _isDarkMode ? const Color(0xFF334155) : AppColors.borderLight,
+                        width: 1.0,
+                      ),
+                    ),
+                  ),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.only(top: 6.0, bottom: 12.0, left: 4.0, right: 4.0),
+                    itemCount: _categories.length + 1,
+                    itemBuilder: (context, index) {
+                      final isSelected = index == _selectedPOSCategoryIndex;
+                      final rawCategory = index == 0 ? 'All' : _categories[index - 1];
+                      final text = index == 0
+                          ? _t('ទាំងអស់', 'All')
+                          : (rawCategory == 'Coffee'
+                              ? _t('កាហ្វេ', 'Coffee')
+                              : rawCategory == 'Bakery'
+                                  ? _t('នំប៉័ង', 'Bakery')
+                                  : rawCategory);
 
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8.0),
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _selectedPOSCategoryIndex = index;
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: isSelected ? AppColors.primary : AppColors.surface,
-                                borderRadius: BorderRadius.circular(20.0),
-                                border: Border.all(
-                                  color: isSelected ? AppColors.primary : AppColors.borderLight,
-                                  width: 1.0,
-                                ),
-                              ),
-                              child: Text(
-                                text,
-                                style: TextStyle(
-                                  fontSize: 13.0,
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                                  color: isSelected ? Colors.white : AppColors.textSecondary,
-                                ),
+                      final Color tileBg = isSelected
+                          ? (_isDarkMode ? const Color(0xFF0F2B66) : const Color(0xFFEEF5FB))
+                          : Colors.transparent;
+                      final Color tileBorder = isSelected
+                          ? (_isDarkMode ? const Color(0xFF5CC8FF) : AppColors.primary)
+                          : Colors.transparent;
+                      final Color iconColor = isSelected
+                          ? (_isDarkMode ? const Color(0xFF5CC8FF) : AppColors.primary)
+                          : (_isDarkMode ? const Color(0xFF94A3B8) : AppColors.textSecondary);
+                      final Color textColor = isSelected
+                          ? (_isDarkMode ? Colors.white : AppColors.primary)
+                          : (_isDarkMode ? const Color(0xFF94A3B8) : AppColors.textSecondary);
+
+                      IconData categoryIcon = Icons.grid_view_rounded;
+                      if (rawCategory == 'Coffee') {
+                        categoryIcon = Icons.local_cafe_rounded;
+                      } else if (rawCategory == 'Bakery') {
+                        categoryIcon = Icons.bakery_dining_rounded;
+                      } else if (rawCategory == 'Tea') {
+                        categoryIcon = Icons.emoji_food_beverage_rounded;
+                      } else if (rawCategory == 'Juice') {
+                        categoryIcon = Icons.local_drink_rounded;
+                      }
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 6.0),
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedPOSCategoryIndex = index;
+                            });
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 2.0),
+                            decoration: BoxDecoration(
+                              color: tileBg,
+                              borderRadius: BorderRadius.circular(12.0),
+                              border: Border.all(
+                                color: tileBorder,
+                                width: isSelected ? 1.5 : 0,
                               ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-
-              // Product Slivers or Empty State
-              if (_isLoadingData)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                )
-              else if (_products.isEmpty)
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
-                    child: Text(
-                      _t('គ្មានផលិតផលក្នុងបញ្ជីទេ។\nសូមបន្ថែមផលិតផលក្នុងទំព័រគ្រប់គ្រង។', 'No products in catalog.\nAdd products in Settings to start.'),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        color: AppColors.textSecondary,
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                )
-              else if (filteredProducts.isEmpty)
-                SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
-                    child: Text(
-                      _t('គ្មានផលិតផលក្នុងប្រភេទទំនិញនេះទេ។', 'No products in this category.'),
-                      style: const TextStyle(
-                        fontSize: 15,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                )
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.all(20.0),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate(
-                      (context, index) {
-                        final product = filteredProducts[index];
-                        final qty = _posQuantities[product.name] ?? 0;
-                        final selectedVariant = selectedVariants[product.name] ??
-                            (product.variants.isNotEmpty ? product.variants.first : null);
-                        final selectedSugar = selectedSugarLevels[product.name];
-                        final currentAddOns = selectedAddOns[product.name] ?? [];
-
-                        final double variantExtra = selectedVariant?.extraPrice ?? 0.0;
-                        final double addOnsExtra = currentAddOns.fold(0.0, (sum, a) => sum + a.extraPrice);
-                        final double itemFinalPrice = product.price + variantExtra + addOnsExtra;
-
-                        final List<String> optionTexts = [];
-                        if (selectedVariant != null) optionTexts.add(selectedVariant.name);
-                        if (selectedSugar != null) optionTexts.add('Sugar $selectedSugar');
-                        if (currentAddOns.isNotEmpty) {
-                          optionTexts.add(currentAddOns.map((a) => a.name).join(', '));
-                        }
-
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12.0),
-                          child: AppCard(
-                            onTap: () => _showVariantSelectionSheet(product),
                             child: Column(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            width: 48,
-                                            height: 48,
-                                            decoration: BoxDecoration(
-                                              color: AppColors.primaryLight,
-                                              borderRadius: BorderRadius.circular(12.0),
-                                            ),
-                                            child: Icon(product.icon, color: AppColors.primary, size: 24),
-                                          ),
-                                          const SizedBox(width: 14.0),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  product.name,
-                                                  style: const TextStyle(
-                                                    fontSize: 15,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: AppColors.textPrimary,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 2.0),
-                                                Text(
-                                                  '\$${itemFinalPrice.toStringAsFixed(2)}',
-                                                  style: const TextStyle(
-                                                    fontSize: 13,
-                                                    color: AppColors.textSecondary,
-                                                    fontWeight: FontWeight.w500,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    
-                                    // Quantity Selector
-                                    Row(
-                                      children: [
-                                        AppIconButton(
-                                          icon: Icons.remove,
-                                          size: 34,
-                                          onPressed: qty > 0
-                                              ? () => setState(() => _posQuantities[product.name] = qty - 1)
-                                              : null,
-                                        ),
-                                        Padding(
-                                          padding: const EdgeInsets.symmetric(horizontal: 14.0),
-                                          child: Text(
-                                            '$qty',
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.textPrimary,
-                                            ),
-                                          ),
-                                        ),
-                                        AppIconButton(
-                                          icon: Icons.add,
-                                          size: 34,
-                                          onPressed: product.stock > 0
-                                              ? () {
-                                                  if (qty < product.stock) {
-                                                    setState(() => _posQuantities[product.name] = qty + 1);
-                                                  } else {
-                                                    ScaffoldMessenger.of(context).showSnackBar(
-                                                      SnackBar(
-                                                        content: Text(_t('មិនអាចលើសពីចំនួនក្នុងស្តុក ${product.stock} បានទេ', 'Cannot exceed available stock of ${product.stock}')),
-                                                        duration: const Duration(seconds: 1),
-                                                      ),
-                                                    );
-                                                  }
-                                                }
-                                              : () {
-                                                  ScaffoldMessenger.of(context).showSnackBar(
-                                                    SnackBar(
-                                                      content: Text(_t('ផលិតផលនេះអស់ពីស្តុកហើយ', 'Item is out of stock')),
-                                                      duration: const Duration(seconds: 1),
-                                                    ),
-                                                  );
-                                                },
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                                Icon(
+                                  categoryIcon,
+                                  color: iconColor,
+                                  size: 20,
                                 ),
-
-                                // Customization option chip row
-                                const SizedBox(height: 10.0),
-                                const Divider(color: AppColors.borderLight, height: 1.0),
-                                const SizedBox(height: 8.0),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Row(
-                                        children: [
-                                          const Icon(Icons.tune_rounded, size: 14, color: AppColors.textSecondary),
-                                          const SizedBox(width: 6.0),
-                                          Expanded(
-                                            child: Text(
-                                              optionTexts.isNotEmpty
-                                                  ? optionTexts.join(' • ')
-                                                  : _t('ជម្រើស: ធម្មតា', 'Option: Standard'),
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w600,
-                                                color: AppColors.textSecondary,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    GestureDetector(
-                                      onTap: () => _showVariantSelectionSheet(product),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4.0),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.primaryLight,
-                                          borderRadius: BorderRadius.circular(20.0),
-                                          border: Border.all(color: AppColors.primary.withOpacity(0.3), width: 1.0),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Text(
-                                              _t('កែប្រែជម្រើស', 'Customize'),
-                                              style: const TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.bold,
-                                                color: AppColors.primary,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            const Icon(Icons.keyboard_arrow_right_rounded, size: 14, color: AppColors.primary),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                const SizedBox(height: 4.0),
+                                Text(
+                                  text,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                    color: textColor,
+                                    height: 1.1,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
-                        );
-                      },
-                      childCount: filteredProducts.length,
-                    ),
+                        ),
+                      );
+                    },
                   ),
                 ),
+
+              // 2. Right Side Product Cards Scroll Area
+              Expanded(
+                child: CustomScrollView(
+                  physics: const BouncingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics(),
+                  ),
+                  slivers: [
+                    // Product Slivers or Empty State
+                    if (_isLoadingData)
+                      const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      )
+                    else if (_products.isEmpty)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: Text(
+                            _t('គ្មានផលិតផលក្នុងបញ្ជីទេ។\nសូមបន្ថែមផលិតផលក្នុងទំព័រគ្រប់គ្រង។', 'No products in catalog.\nAdd products in Settings to start.'),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: _isDarkMode ? const Color(0xFF94A3B8) : AppColors.textSecondary,
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      )
+                    else if (filteredProducts.isEmpty)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: Text(
+                            _t('គ្មានផលិតផលក្នុងប្រភេទទំនិញនេះទេ។', 'No products in this category.'),
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: _isDarkMode ? const Color(0xFF94A3B8) : AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      SliverPadding(
+                        padding: const EdgeInsets.all(12.0),
+                        sliver: SliverGrid(
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 12.0,
+                            crossAxisSpacing: 12.0,
+                            mainAxisExtent: 220.0,
+                          ),
+                          delegate: SliverChildBuilderDelegate(
+                            (context, index) {
+                              final product = filteredProducts[index];
+                              final qty = _posQuantities[product.name] ?? 0;
+                              final selectedVariant = selectedVariants[product.name] ??
+                                  (product.variants.isNotEmpty ? product.variants.first : null);
+                              final selectedSugar = selectedSugarLevels[product.name];
+                              final currentAddOns = selectedAddOns[product.name] ?? [];
+
+                              final double variantExtra = selectedVariant?.extraPrice ?? 0.0;
+                              final double addOnsExtra = currentAddOns.fold(0.0, (sum, a) => sum + a.extraPrice);
+                              final double itemFinalPrice = product.price + variantExtra + addOnsExtra;
+
+                              final List<String> optionTexts = [];
+                              if (selectedVariant != null) optionTexts.add(selectedVariant.name);
+                              if (selectedSugar != null) optionTexts.add('Sugar $selectedSugar');
+                              if (currentAddOns.isNotEmpty) {
+                                optionTexts.add(currentAddOns.map((a) => a.name).join(', '));
+                              }
+
+                              final Color itemIconBg = _isDarkMode ? const Color(0xFF0F2B66) : AppColors.primaryLight;
+                              final Color itemIconColor = _isDarkMode ? const Color(0xFF5CC8FF) : AppColors.primary;
+                              final Color itemTitleColor = _isDarkMode ? Colors.white : AppColors.textPrimary;
+                              final Color cardBg = _isDarkMode ? const Color(0xFF1E293B) : AppColors.surface;
+                              final Color cardBorder = _isDarkMode ? const Color(0xFF334155) : AppColors.borderLight;
+                              final Color customizeBg = _isDarkMode ? const Color(0xFF0F2B66) : AppColors.primaryLight;
+                              final Color customizeText = _isDarkMode ? const Color(0xFF5CC8FF) : AppColors.primary;
+
+                              final bool hasImage = product.imageUrl != null && product.imageUrl!.trim().isNotEmpty;
+
+                              return GestureDetector(
+                                onTap: () => _showVariantSelectionSheet(product),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: cardBg,
+                                    borderRadius: BorderRadius.circular(20.0),
+                                    border: Border.all(color: cardBorder, width: 1.0),
+                                  ),
+                                  clipBehavior: Clip.antiAlias,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      // Top Full-Width Image Container Fitting the Card
+                                      Stack(
+                                        children: [
+                                          SizedBox(
+                                            height: 105.0,
+                                            width: double.infinity,
+                                            child: hasImage
+                                                ? Image.network(
+                                                    product.imageUrl!,
+                                                    fit: BoxFit.cover,
+                                                    errorBuilder: (ctx, err, stack) => Container(
+                                                      color: itemIconBg,
+                                                      child: Center(
+                                                        child: Icon(product.icon, color: itemIconColor, size: 36),
+                                                      ),
+                                                    ),
+                                                  )
+                                                : Container(
+                                                    decoration: BoxDecoration(
+                                                      gradient: LinearGradient(
+                                                        colors: _isDarkMode
+                                                            ? [const Color(0xFF1E293B), const Color(0xFF0F2B66)]
+                                                            : [const Color(0xFFE2E8F0), const Color(0xFFEEF5FB)],
+                                                        begin: Alignment.topLeft,
+                                                        end: Alignment.bottomRight,
+                                                      ),
+                                                    ),
+                                                    child: Center(
+                                                      child: Icon(product.icon, color: itemIconColor, size: 36),
+                                                    ),
+                                                  ),
+                                          ),
+                                          if (product.variants.isNotEmpty || product.sugarLevels.isNotEmpty)
+                                            Positioned(
+                                              top: 8,
+                                              right: 8,
+                                              child: GestureDetector(
+                                                onTap: () => _showVariantSelectionSheet(product),
+                                                child: Container(
+                                                  padding: const EdgeInsets.all(6.0),
+                                                  decoration: BoxDecoration(
+                                                    color: customizeBg.withOpacity(0.9),
+                                                    shape: BoxShape.circle,
+                                                    border: Border.all(color: cardBorder, width: 1),
+                                                  ),
+                                                  child: Icon(Icons.tune_rounded, size: 14, color: customizeText),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+
+                                      // Details Section
+                                      Expanded(
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(8.0),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    product.name,
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      fontSize: 12.5,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: itemTitleColor,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 2.0),
+                                                  Text(
+                                                    '\$${itemFinalPrice.toStringAsFixed(2)}',
+                                                    style: TextStyle(
+                                                      fontSize: 12.5,
+                                                      fontWeight: FontWeight.w800,
+                                                      color: _isDarkMode ? const Color(0xFF5CC8FF) : AppColors.primary,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+
+                                              // Bottom Row: Quantity Selector (- qty +)
+                                              Row(
+                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                children: [
+                                                  AppIconButton(
+                                                    icon: Icons.remove,
+                                                    size: 26,
+                                                    onPressed: qty > 0
+                                                        ? () => setState(() => _posQuantities[product.name] = qty - 1)
+                                                        : null,
+                                                  ),
+                                                  Text(
+                                                    '$qty',
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: itemTitleColor,
+                                                    ),
+                                                  ),
+                                                  AppIconButton(
+                                                    icon: Icons.add,
+                                                    size: 26,
+                                                    onPressed: product.stock > 0
+                                                        ? () {
+                                                            if (qty < product.stock) {
+                                                              setState(() => _posQuantities[product.name] = qty + 1);
+                                                            } else {
+                                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                                SnackBar(
+                                                                  content: Text(_t('មិនអាចលើសពីចំនួនក្នុងស្តុក ${product.stock} បានទេ', 'Cannot exceed available stock of ${product.stock}')),
+                                                                  duration: const Duration(seconds: 1),
+                                                                ),
+                                                              );
+                                                            }
+                                                          }
+                                                        : null,
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                            childCount: filteredProducts.length,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
         
-        // Cart Summary & Single Order & Print Invoice Action Button
-        Container(
-          padding: const EdgeInsets.all(20.0),
-          decoration: const BoxDecoration(
-            color: AppColors.surface,
+        // Cart Summary & Single Order & Print Invoice Action Button (Only show when at least 1 item is selected)
+        if (totalItemsCount > 0)
+          Container(
+            padding: const EdgeInsets.all(20.0),
+          decoration: BoxDecoration(
+            color: _isDarkMode ? const Color(0xFF1E293B) : AppColors.surface,
             border: Border(
-              top: BorderSide(color: AppColors.borderLight, width: 1.0),
+              top: BorderSide(
+                color: _isDarkMode ? const Color(0xFF334155) : AppColors.borderLight, 
+                width: 1.0,
+              ),
             ),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24.0)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24.0)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1900,11 +2297,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Text(
                     _t('សរុបការកុម្ម៉ង់ ($totalItemsCount មុខ):', 'Order Total ($totalItemsCount items):'),
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                    style: TextStyle(
+                      fontSize: 14, 
+                      fontWeight: FontWeight.bold, 
+                      color: _isDarkMode ? const Color(0xFF94A3B8) : AppColors.textSecondary,
+                    ),
                   ),
                   Text(
                     '\$${totalCart.toStringAsFixed(2)}',
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                    style: TextStyle(
+                      fontSize: 22, 
+                      fontWeight: FontWeight.bold, 
+                      color: _isDarkMode ? const Color(0xFF5CC8FF) : AppColors.primary,
+                    ),
                   ),
                 ],
               ),
@@ -2239,10 +2644,10 @@ class _HomeScreenState extends State<HomeScreen> {
           Center(
             child: Text(
               _merchantName,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
+                color: _isDarkMode ? Colors.white : AppColors.textPrimary,
               ),
             ),
           ),
@@ -2250,9 +2655,9 @@ class _HomeScreenState extends State<HomeScreen> {
           Center(
             child: Text(
               _merchantEmail,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
-                color: AppColors.textSecondary,
+                color: _isDarkMode ? const Color(0xFF94A3B8) : AppColors.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -2262,10 +2667,10 @@ class _HomeScreenState extends State<HomeScreen> {
           // Heading: General Settings
           Text(
             _t('ទូទៅ', 'General'),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.bold,
-              color: AppColors.textSecondary,
+              color: _isDarkMode ? const Color(0xFF94A3B8) : AppColors.textSecondary,
               letterSpacing: 0.5,
             ),
           ),
@@ -2331,15 +2736,27 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
 
+          _buildSettingTile(
+            icon: Icons.language_rounded,
+            title: _t('ភាសាប្រព័ន្ធ (Language)', 'Language / ភាសា'),
+            onTap: _showLanguageSelectionSheet,
+          ),
+
+          _buildSettingTile(
+            icon: Icons.palette_rounded,
+            title: _t('រូបរាង (Appearance & Dark Mode)', 'Appearance & Dark Mode'),
+            onTap: _showAppearanceBottomSheet,
+          ),
+
           const SizedBox(height: 16.0),
 
           // Heading: Other
           Text(
             _t('ផ្សេងៗ', 'Other'),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.bold,
-              color: AppColors.textSecondary,
+              color: _isDarkMode ? const Color(0xFF94A3B8) : AppColors.textSecondary,
               letterSpacing: 0.5,
             ),
           ),
@@ -2363,20 +2780,20 @@ class _HomeScreenState extends State<HomeScreen> {
             expandedContent: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'POS Terminal v1.2.4',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
+                    color: _isDarkMode ? Colors.white : AppColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 4.0),
                 Text(
                   _t('កំណែប្រព័ន្ធប្រតិបត្តិការ (Rev. 84)\nប្រព័ន្ធសុវត្ថិភាព SSL • ច្រកទូទាត់ PCI', 'Production Build (Rev. 84)\nSecure SSL Encryption • PCI Compliant Gateway'),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.textSecondary,
+                    color: _isDarkMode ? const Color(0xFF94A3B8) : AppColors.textSecondary,
                     height: 1.4,
                   ),
                 ),
@@ -2415,6 +2832,15 @@ class _HomeScreenState extends State<HomeScreen> {
     VoidCallback? onTap,
     Widget? expandedContent,
   }) {
+    final Color iconColor = isDestructive 
+        ? AppColors.error 
+        : (_isDarkMode ? const Color(0xFF5CC8FF) : AppColors.primary);
+    final Color titleColor = isDestructive 
+        ? AppColors.error 
+        : (_isDarkMode ? Colors.white : AppColors.textPrimary);
+    final Color dividerColor = _isDarkMode ? const Color(0xFF334155) : AppColors.borderLight;
+    final Color arrowColor = _isDarkMode ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+
     return Column(
       children: [
         AppCard(
@@ -2430,7 +2856,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Icon(
                         icon,
-                        color: isDestructive ? AppColors.error : AppColors.primary,
+                        color: iconColor,
                         size: 20,
                       ),
                       const SizedBox(width: 14.0),
@@ -2439,7 +2865,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: isDestructive ? AppColors.error : AppColors.textPrimary,
+                          color: titleColor,
                         ),
                       ),
                     ],
@@ -2449,20 +2875,20 @@ class _HomeScreenState extends State<HomeScreen> {
                       isExpanded 
                           ? Icons.keyboard_arrow_up_rounded 
                           : Icons.keyboard_arrow_down_rounded,
-                      color: AppColors.textSecondary,
+                      color: arrowColor,
                       size: 20,
                     )
                   else if (!isDestructive)
-                    const Icon(
+                    Icon(
                       Icons.chevron_right_rounded,
-                      color: AppColors.textSecondary,
+                      color: arrowColor,
                       size: 20,
                     ),
                 ],
               ),
               if (isExpanded && expandedContent != null) ...[
                 const SizedBox(height: 12.0),
-                const Divider(color: AppColors.borderLight, height: 1.0),
+                Divider(color: dividerColor, height: 1.0),
                 const SizedBox(height: 12.0),
                 expandedContent,
               ],
@@ -2473,7 +2899,4 @@ class _HomeScreenState extends State<HomeScreen> {
       ],
     );
   }
-
-  // Custom animated bottom bar helper configuration
-
 }

@@ -25,38 +25,37 @@ class StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color backgroundColor = isDark ? AppColors.navyAccent : AppColors.primaryLight;
-    final Color labelColor = isDark ? Colors.white.withOpacity(0.7) : AppColors.textSecondary;
-    final Color valueColor = isDark ? Colors.white : AppColors.textPrimary;
+    final bool isDarkModeActive = Theme.of(context).brightness == Brightness.dark || isDark;
+    final Color backgroundColor = isDarkModeActive ? const Color(0xFF1E293B) : AppColors.surface;
+    final Color labelColor = isDarkModeActive ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+    final Color valueColor = isDarkModeActive ? Colors.white : AppColors.heading;
+    final Color borderColor = isDarkModeActive ? const Color(0xFF334155) : AppColors.borderLight;
     
-    // Default badge backgrounds
-    final Color effectiveBadgeColor = badgeColor ?? 
-        (isDark ? Colors.white.withOpacity(0.15) : Colors.white);
-    final Color effectiveBadgeIconColor = badgeIconColor ?? 
-        (isDark ? Colors.white : AppColors.primary);
+    // Icon square container background
+    final Color effectiveBadgeColor = badgeColor ?? (isDarkModeActive ? const Color(0xFF0F2B66) : const Color(0xFFEEF5FB));
+    final Color effectiveBadgeIconColor = badgeIconColor ?? (isDarkModeActive ? const Color(0xFF5CC8FF) : AppColors.primary);
 
     return Container(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.all(20.0),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: BorderRadius.circular(16.0),
-        boxShadow: isDark ? [] : AppColors.softShadow,
-        border: isDark ? null : Border.all(color: AppColors.borderLight.withOpacity(0.6), width: 1.0),
+        borderRadius: BorderRadius.circular(20.0),
+        border: Border.all(color: borderColor, width: 1.0),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Icon Badge & Trend (if any) in row
+          // Icon Badge & Trend Badge Row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
                   color: effectiveBadgeColor,
-                  borderRadius: BorderRadius.circular(12.0),
+                  borderRadius: BorderRadius.circular(14.0),
                 ),
                 child: Center(
                   child: Icon(
@@ -68,28 +67,28 @@ class StatCard extends StatelessWidget {
               ),
               if (trendText != null && isTrendPositive != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4.0),
                   decoration: BoxDecoration(
                     color: isTrendPositive!
-                        ? AppColors.success.withOpacity(0.15)
-                        : AppColors.error.withOpacity(0.15),
+                        ? const Color(0xFFE8F9F1)
+                        : const Color(0xFFFEF2F2),
                     borderRadius: BorderRadius.circular(20.0),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        isTrendPositive! ? Icons.arrow_upward : Icons.arrow_downward,
+                        isTrendPositive! ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
                         size: 12,
-                        color: isTrendPositive! ? AppColors.success : AppColors.error,
+                        color: isTrendPositive! ? const Color(0xFF16C784) : const Color(0xFFDC2626),
                       ),
-                      const SizedBox(width: 2.0),
+                      const SizedBox(width: 3.0),
                       Text(
                         trendText!,
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: isTrendPositive! ? AppColors.success : AppColors.error,
+                          color: isTrendPositive! ? const Color(0xFF16C784) : const Color(0xFFDC2626),
                         ),
                       ),
                     ],
@@ -108,14 +107,14 @@ class StatCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6.0),
-          // Big bold number
+          // Large Bold Number
           Text(
             value,
             style: TextStyle(
-              fontSize: 22,
+              fontSize: 24,
               fontWeight: FontWeight.bold,
               color: valueColor,
-              letterSpacing: -0.5,
+              letterSpacing: -0.6,
             ),
           ),
         ],

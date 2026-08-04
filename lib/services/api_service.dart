@@ -16,6 +16,7 @@ class ApiService {
 
   static String? _token;
   static String? userEmail;
+  static String? storeId;
 
   static Map<String, String> _getHeaders() {
     final headers = {'Content-Type': 'application/json'};
@@ -25,7 +26,7 @@ class ApiService {
     return headers;
   }
 
-  // Auth: Login
+  // 1. Auth: Login
   static Future<Map<String, dynamic>> login(String email, String password) async {
     final url = Uri.parse('$baseUrl/api/auth/login');
     final response = await http.post(
@@ -38,9 +39,11 @@ class ApiService {
     if (response.statusCode == 200 && resData['status'] == 'success') {
       _token = resData['session']['access_token'];
       userEmail = resData['user']['email'];
+      storeId = resData['user']?['store_id'] ?? resData['store_id'] ?? resData['user']?['store']?['id'];
       return {
         'success': true,
         'user': resData['user'],
+        'access_token': _token,
       };
     } else {
       throw Exception(resData['message'] ?? 'Login failed');
@@ -54,11 +57,67 @@ class ApiService {
     await http.post(url, headers: _getHeaders());
     _token = null;
     userEmail = null;
+    storeId = null;
   }
 
-  // Categories: Get all
-  static Future<List<Map<String, dynamic>>> getCategories() async {
-    final url = Uri.parse('$baseUrl/api/categories');
+  // 2. Stores: Create New Store & User Profile
+  static Future<Map<String, dynamic>> createStore({
+    required String email,
+    required String password,
+    required String name,
+    required String storeName,
+    required String phone,
+    required String address,
+    required String imageUrl,
+  }) async {
+    final url = Uri.parse('$baseUrl/api/stores');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'email': email,
+        'password': password,
+        'name': name,
+        'store_name': storeName,
+        'phone': phone,
+        'address': address,
+        'image_url': imageUrl,
+      }),
+    );
+
+    final resData = jsonDecode(response.body);
+    if (response.statusCode == 201 || (response.statusCode == 200 && resData['status'] == 'success')) {
+      return resData;
+    } else {
+      throw Exception(resData['message'] ?? 'Failed to create store');
+    }
+  }
+
+  // Stores: Get All Store Data (Store Aggregator)
+  static Future<Map<String, dynamic>> getStoreAllData([String? storeIdParam]) async {
+    final targetStoreId = storeIdParam ?? storeId;
+    if (targetStoreId == null || targetStoreId.isEmpty) {
+      throw Exception('Store ID is required');
+    }
+    final url = Uri.parse('$baseUrl/api/stores/$targetStoreId/all');
+    final response = await http.get(url, headers: _getHeaders());
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      final resData = jsonDecode(response.body);
+      throw Exception(resData['message'] ?? 'Failed to load store data');
+    }
+  }
+
+  // 3. Categories: Get Categories (Filtered by Logged-in Store or store_id query param)
+  static Future<List<Map<String, dynamic>>> getCategories({String? storeIdParam}) async {
+    final targetStoreId = storeIdParam ?? storeId;
+    String path = '$baseUrl/api/categories';
+    if (targetStoreId != null && targetStoreId.isNotEmpty) {
+      path += '?store_id=$targetStoreId';
+    }
+    final url = Uri.parse(path);
     final response = await http.get(url, headers: _getHeaders());
 
     if (response.statusCode == 200) {
@@ -69,13 +128,19 @@ class ApiService {
     }
   }
 
-  // Categories: Create
-  static Future<Map<String, dynamic>> createCategory(String name) async {
+  // Categories: Create Category for Store
+  static Future<Map<String, dynamic>> createCategory(String name, {String? storeIdParam}) async {
+    final targetStoreId = storeIdParam ?? storeId;
     final url = Uri.parse('$baseUrl/api/categories');
+    final Map<String, dynamic> body = {'name': name};
+    if (targetStoreId != null && targetStoreId.isNotEmpty) {
+      body['store_id'] = targetStoreId;
+    }
+
     final response = await http.post(
       url,
       headers: _getHeaders(),
-      body: jsonEncode({'name': name}),
+      body: jsonEncode(body),
     );
 
     final resData = jsonDecode(response.body);
@@ -86,11 +151,20 @@ class ApiService {
     }
   }
 
-  // Products: Get all
-  static Future<List<ProductItem>> getProducts({String? categoryId}) async {
+  // 4. Products: Get Products (Filtered by Logged-in Store, store_id, and/or category_id)
+  static Future<List<ProductItem>> getProducts({String? categoryId, String? storeIdParam}) async {
+    final targetStoreId = storeIdParam ?? storeId;
+    final List<String> queryParams = [];
+    if (targetStoreId != null && targetStoreId.isNotEmpty) {
+      queryParams.add('store_id=$targetStoreId');
+    }
+    if (categoryId != null && categoryId.isNotEmpty) {
+      queryParams.add('category_id=$categoryId');
+    }
+
     String path = '$baseUrl/api/products';
-    if (categoryId != null) {
-      path += '?category_id=$categoryId';
+    if (queryParams.isNotEmpty) {
+      path += '?${queryParams.join('&')}';
     }
     final url = Uri.parse(path);
     final response = await http.get(url, headers: _getHeaders());
@@ -98,7 +172,7 @@ class ApiService {
     if (response.statusCode == 200) {
       final List<dynamic> list = jsonDecode(response.body);
       // Fetch categories map to match category name
-      final categories = await getCategories();
+      final categories = await getCategories(storeIdParam: targetStoreId);
       final catMap = {for (var c in categories) c['id']: c['name']};
 
       return list.map((item) {
@@ -109,6 +183,7 @@ class ApiService {
         IconData itemIcon;
         switch (catName.toLowerCase()) {
           case 'coffee':
+          case 'hot coffee':
             itemIcon = Icons.coffee_rounded;
             break;
           case 'bakery':
@@ -130,6 +205,7 @@ class ApiService {
           price: (item['price'] as num).toDouble(),
           stock: item['stock'] as int,
           icon: itemIcon,
+          imageUrl: item['image_url'],
           isInStock: (item['stock'] as int) > 0,
           category: catName,
           categoryId: catId,
@@ -149,21 +225,27 @@ class ApiService {
     }
   }
 
-  // Products: Create
+  // Products: Create Product for Store
   static Future<ProductItem> createProduct(
-    String name, double price, int stock, String? categoryId, {String imageUrl = ''}
+    String name, double price, int stock, String? categoryId, {String imageUrl = '', String? storeIdParam}
   ) async {
+    final targetStoreId = storeIdParam ?? storeId;
     final url = Uri.parse('$baseUrl/api/products');
+    final Map<String, dynamic> body = {
+      'name': name,
+      'price': price,
+      'stock': stock,
+      'category_id': categoryId,
+      'image_url': imageUrl,
+    };
+    if (targetStoreId != null && targetStoreId.isNotEmpty) {
+      body['store_id'] = targetStoreId;
+    }
+
     final response = await http.post(
       url,
       headers: _getHeaders(),
-      body: jsonEncode({
-        'name': name,
-        'price': price,
-        'stock': stock,
-        'category_id': categoryId,
-        'image_url': imageUrl,
-      }),
+      body: jsonEncode(body),
     );
 
     final resData = jsonDecode(response.body);
@@ -176,7 +258,7 @@ class ApiService {
         stock: item['stock'] as int,
         icon: Icons.local_cafe_rounded,
         isInStock: (item['stock'] as int) > 0,
-        category: '', // will be populated when loading all list
+        category: '',
         categoryId: item['category_id'],
       );
     } else {
@@ -184,21 +266,23 @@ class ApiService {
     }
   }
 
-  // Products: Update
+  // Products: Update Product
   static Future<void> updateProduct(
     String id, String name, double price, int stock, String? categoryId, {String imageUrl = ''}
   ) async {
     final url = Uri.parse('$baseUrl/api/products/$id');
+    final Map<String, dynamic> body = {
+      'name': name,
+      'price': price,
+      'stock': stock,
+    };
+    if (categoryId != null) body['category_id'] = categoryId;
+    if (imageUrl.isNotEmpty) body['image_url'] = imageUrl;
+
     final response = await http.put(
       url,
       headers: _getHeaders(),
-      body: jsonEncode({
-        'name': name,
-        'price': price,
-        'stock': stock,
-        'category_id': categoryId,
-        'image_url': imageUrl,
-      }),
+      body: jsonEncode(body),
     );
 
     final resData = jsonDecode(response.body);
@@ -207,7 +291,7 @@ class ApiService {
     }
   }
 
-  // Products: Delete
+  // Products: Delete Product
   static Future<void> deleteProduct(String id) async {
     final url = Uri.parse('$baseUrl/api/products/$id');
     final response = await http.delete(url, headers: _getHeaders());
@@ -218,19 +302,43 @@ class ApiService {
     }
   }
 
-  // Orders: Place order
+  // 5. Orders: Get Orders (Filtered by Logged-in Store or store_id query param)
+  static Future<List<dynamic>> getOrders({String? storeIdParam}) async {
+    final targetStoreId = storeIdParam ?? storeId;
+    String path = '$baseUrl/api/orders';
+    if (targetStoreId != null && targetStoreId.isNotEmpty) {
+      path += '?store_id=$targetStoreId';
+    }
+    final url = Uri.parse(path);
+    final response = await http.get(url, headers: _getHeaders());
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as List<dynamic>;
+    } else {
+      final resData = jsonDecode(response.body);
+      throw Exception(resData['message'] ?? 'Failed to load orders');
+    }
+  }
+
+  // Orders: Create Order for Store
   static Future<String> createOrder(
-    String paymentMethod, double totalAmount, List<Map<String, dynamic>> items
+    String paymentMethod, double totalAmount, List<Map<String, dynamic>> items, {String? storeIdParam}
   ) async {
+    final targetStoreId = storeIdParam ?? storeId;
     final url = Uri.parse('$baseUrl/api/orders');
+    final Map<String, dynamic> body = {
+      'payment_method': paymentMethod,
+      'total_amount': totalAmount,
+      'items': items,
+    };
+    if (targetStoreId != null && targetStoreId.isNotEmpty) {
+      body['store_id'] = targetStoreId;
+    }
+
     final response = await http.post(
       url,
       headers: _getHeaders(),
-      body: jsonEncode({
-        'payment_method': paymentMethod,
-        'total_amount': totalAmount,
-        'items': items,
-      }),
+      body: jsonEncode(body),
     );
 
     final resData = jsonDecode(response.body);
@@ -241,28 +349,35 @@ class ApiService {
     }
   }
 
+  // Orders: Update Order Status (e.g. pending -> completed)
+  static Future<void> updateOrderStatus(String orderId, String status) async {
+    final url = Uri.parse('$baseUrl/api/orders/$orderId/status');
+    final response = await http.patch(
+      url,
+      headers: _getHeaders(),
+      body: jsonEncode({'status': status}),
+    );
+
+    final resData = jsonDecode(response.body);
+    if (response.statusCode != 200 || resData['status'] != 'success') {
+      throw Exception(resData['message'] ?? 'Failed to update order status');
+    }
+  }
+
   // Dashboard: Get statistics
-  static Future<Map<String, dynamic>> getDashboardStats() async {
-    final url = Uri.parse('$baseUrl/api/dashboard/stats');
+  static Future<Map<String, dynamic>> getDashboardStats({String? storeIdParam}) async {
+    final targetStoreId = storeIdParam ?? storeId;
+    String path = '$baseUrl/api/dashboard/stats';
+    if (targetStoreId != null && targetStoreId.isNotEmpty) {
+      path += '?store_id=$targetStoreId';
+    }
+    final url = Uri.parse(path);
     final response = await http.get(url, headers: _getHeaders());
 
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
       throw Exception('Failed to load dashboard stats');
-    }
-  }
-
-  // Orders: Get list of orders
-  static Future<List<dynamic>> getOrders() async {
-    final url = Uri.parse('$baseUrl/api/orders');
-    final response = await http.get(url, headers: _getHeaders());
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body) as List<dynamic>;
-    } else {
-      final resData = jsonDecode(response.body);
-      throw Exception(resData['message'] ?? 'Failed to load orders');
     }
   }
 

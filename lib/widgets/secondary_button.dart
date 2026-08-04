@@ -14,8 +14,8 @@ class SecondaryButton extends StatelessWidget {
     required this.text,
     this.onPressed,
     this.icon,
-    this.height = 54.0,
-    this.borderRadius = 16.0,
+    this.height = 48.0,
+    this.borderRadius = 30.0,
     this.isLoading = false,
   });
 

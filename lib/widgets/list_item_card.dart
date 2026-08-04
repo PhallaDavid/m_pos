@@ -30,10 +30,17 @@ class ListItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color trailingColor = AppColors.textPrimary;
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    Color trailingColor = isDark ? Colors.white : AppColors.textPrimary;
     if (isPositive != null) {
       trailingColor = isPositive! ? AppColors.success : AppColors.error;
     }
+
+    final Color titleColor = isDark ? Colors.white : AppColors.textPrimary;
+    final Color subtitleColor = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+    final Color effectiveLeadingBg = leadingBgColor ?? (isDark ? const Color(0xFF0F2B66) : AppColors.background);
+    final Color effectiveIconColor = leadingIconColor ?? (isDark ? const Color(0xFF5CC8FF) : AppColors.primary);
 
     return AppCard(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
@@ -45,7 +52,7 @@ class ListItemCard extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: leadingBgColor ?? AppColors.background,
+              color: effectiveLeadingBg,
               borderRadius: BorderRadius.circular(12.0),
             ),
             child: ClipRRect(
@@ -54,9 +61,9 @@ class ListItemCard extends StatelessWidget {
                   ? Image.network(
                       imageUrl!,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => _buildFallbackIcon(),
+                      errorBuilder: (context, error, stackTrace) => _buildFallbackIcon(effectiveIconColor),
                     )
-                  : _buildFallbackIcon(),
+                  : _buildFallbackIcon(effectiveIconColor),
             ),
           ),
           const SizedBox(width: 16.0),
@@ -68,10 +75,10 @@ class ListItemCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
+                    color: titleColor,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -79,10 +86,10 @@ class ListItemCard extends StatelessWidget {
                 const SizedBox(height: 4.0),
                 Text(
                   subtitle,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.normal,
-                    color: AppColors.textSecondary,
+                    color: subtitleColor,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -108,9 +115,9 @@ class ListItemCard extends StatelessWidget {
                 const SizedBox(height: 4.0),
                 Text(
                   trailingSubtitle!,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.textSecondary,
+                    color: subtitleColor,
                   ),
                 ),
               ],
@@ -121,11 +128,11 @@ class ListItemCard extends StatelessWidget {
     );
   }
 
-  Widget _buildFallbackIcon() {
+  Widget _buildFallbackIcon(Color iconColor) {
     return Center(
       child: Icon(
         leadingIcon ?? Icons.receipt_long_outlined,
-        color: leadingIconColor ?? AppColors.primary,
+        color: iconColor,
         size: 24.0,
       ),
     );

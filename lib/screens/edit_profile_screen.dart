@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/rounded_text_field.dart';
-import '../widgets/app_card.dart';
 import '../widgets/app_icon_button.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
@@ -107,8 +106,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color textColor = isDark ? Colors.white : AppColors.textPrimary;
+    final Color subTextColor = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: isDark ? const Color(0xFF0F172A) : AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -120,10 +123,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             onPressed: () => Navigator.pop(context),
           ),
         ),
-        title: const Text(
+        title: Text(
           'Edit Profile',
           style: TextStyle(
-            color: AppColors.textPrimary,
+            color: textColor,
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
@@ -154,24 +157,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       height: 100,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: AppColors.primaryLight,
-                        border: Border.all(color: AppColors.borderLight, width: 3.0),
+                        color: isDark ? const Color(0xFF0F2B66) : AppColors.primaryLight,
+                        border: Border.all(color: isDark ? const Color(0xFF334155) : AppColors.borderLight, width: 3.0),
                       ),
                       child: ClipOval(
                         child: _imageUrl != null && _imageUrl!.isNotEmpty
                             ? Image.network(
                                 _imageUrl!,
                                 fit: BoxFit.cover,
-                                errorBuilder: (context, err, stack) => const Icon(
+                                errorBuilder: (context, err, stack) => Icon(
                                   Icons.store_rounded,
                                   size: 40,
-                                  color: AppColors.primary,
+                                  color: isDark ? const Color(0xFF5CC8FF) : AppColors.primary,
                                 ),
                               )
-                            : const Icon(
+                            : Icon(
                                 Icons.store_rounded,
                                 size: 40,
-                                color: AppColors.primary,
+                                color: isDark ? const Color(0xFF5CC8FF) : AppColors.primary,
                               ),
                       ),
                     ),
@@ -184,7 +187,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: AppColors.success,
-                          border: Border.all(color: Colors.white, width: 2.0),
+                          border: Border.all(color: isDark ? const Color(0xFF0F172A) : Colors.white, width: 2.0),
                         ),
                         child: const Icon(
                           Icons.edit_rounded,
@@ -200,77 +203,75 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SizedBox(height: 32.0),
 
             // Form inputs
-            const Text(
+            Text(
               'Store Configuration',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
+                color: textColor,
               ),
             ),
             const SizedBox(height: 12.0),
-            AppCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Merchant Owner Name',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                  ),
-                  const SizedBox(height: 8.0),
-                  RoundedTextField(
-                    controller: _merchantNameController,
-                    hintText: 'e.g. John Doe',
-                    prefixIcon: Icons.person_rounded,
-                  ),
-                  const SizedBox(height: 16.0),
-                  const Text(
-                    'Store Name',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                  ),
-                  const SizedBox(height: 8.0),
-                  RoundedTextField(
-                    controller: _storeNameController,
-                    hintText: 'Central Coffee Hub',
-                    prefixIcon: Icons.store_rounded,
-                  ),
-                  const SizedBox(height: 16.0),
-                  const Text(
-                    'Store Contact Email (Read Only)',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
-                  ),
-                  const SizedBox(height: 8.0),
-                  RoundedTextField(
-                    controller: _storeEmailController,
-                    hintText: 'contact@coffeehub.com',
-                    prefixIcon: Icons.mail_rounded,
-                    readOnly: true,
-                  ),
-                  const SizedBox(height: 16.0),
-                  const Text(
-                    'Store Contact Phone',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                  ),
-                  const SizedBox(height: 8.0),
-                  RoundedTextField(
-                    controller: _storePhoneController,
-                    hintText: '+1 (555) 000-0000',
-                    prefixIcon: Icons.phone_rounded,
-                    keyboardType: TextInputType.phone,
-                  ),
-                  const SizedBox(height: 16.0),
-                  const Text(
-                    'Store Address',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                  ),
-                  const SizedBox(height: 8.0),
-                  RoundedTextField(
-                    controller: _storeAddressController,
-                    hintText: 'e.g. 123 Oak Road, City',
-                    prefixIcon: Icons.location_on_rounded,
-                  ),
-                ],
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Merchant Owner Name',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
+                ),
+                const SizedBox(height: 8.0),
+                RoundedTextField(
+                  controller: _merchantNameController,
+                  hintText: 'e.g. John Doe',
+                  prefixIcon: Icons.person_rounded,
+                ),
+                const SizedBox(height: 16.0),
+                Text(
+                  'Store Name',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
+                ),
+                const SizedBox(height: 8.0),
+                RoundedTextField(
+                  controller: _storeNameController,
+                  hintText: 'Central Coffee Hub',
+                  prefixIcon: Icons.store_rounded,
+                ),
+                const SizedBox(height: 16.0),
+                Text(
+                  'Store Contact Email (Read Only)',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: subTextColor),
+                ),
+                const SizedBox(height: 8.0),
+                RoundedTextField(
+                  controller: _storeEmailController,
+                  hintText: 'contact@coffeehub.com',
+                  prefixIcon: Icons.mail_rounded,
+                  readOnly: true,
+                ),
+                const SizedBox(height: 16.0),
+                Text(
+                  'Store Contact Phone',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
+                ),
+                const SizedBox(height: 8.0),
+                RoundedTextField(
+                  controller: _storePhoneController,
+                  hintText: '+1 (555) 000-0000',
+                  prefixIcon: Icons.phone_rounded,
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 16.0),
+                Text(
+                  'Store Address',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
+                ),
+                const SizedBox(height: 8.0),
+                RoundedTextField(
+                  controller: _storeAddressController,
+                  hintText: 'e.g. 123 Oak Road, City',
+                  prefixIcon: Icons.location_on_rounded,
+                ),
+              ],
             ),
             const SizedBox(height: 32.0),
 

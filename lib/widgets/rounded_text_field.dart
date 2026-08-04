@@ -44,6 +44,10 @@ class _RoundedTextFieldState extends State<RoundedTextField> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color textColor = isDark ? Colors.white : AppColors.textPrimary;
+    final Color iconColor = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+
     return TextFormField(
       controller: widget.controller,
       obscureText: _obscureText,
@@ -54,21 +58,24 @@ class _RoundedTextFieldState extends State<RoundedTextField> {
       readOnly: widget.readOnly,
       onTap: widget.onTap,
       cursorColor: AppColors.primary,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 15.0,
-        color: AppColors.textPrimary,
+        color: textColor,
         fontWeight: FontWeight.w500,
       ),
       decoration: InputDecoration(
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
         hintText: widget.hintText,
         prefixIcon: widget.prefixIcon != null 
-            ? Icon(widget.prefixIcon, size: 20.0) 
+            ? Icon(widget.prefixIcon, size: 20.0, color: iconColor) 
             : null,
         suffixIcon: widget.obscureText
             ? IconButton(
                 icon: Icon(
                   _obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                   size: 20.0,
+                  color: iconColor,
                 ),
                 onPressed: () {
                   setState(() {

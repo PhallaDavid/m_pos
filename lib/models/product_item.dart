@@ -16,6 +16,7 @@ class ProductItem {
   double price;
   int stock;
   IconData icon;
+  String? imageUrl;
   bool isInStock;
   String category;
   String? categoryId;
@@ -29,6 +30,7 @@ class ProductItem {
     required this.price,
     required this.stock,
     required this.icon,
+    this.imageUrl,
     required this.isInStock,
     required this.category,
     this.categoryId,

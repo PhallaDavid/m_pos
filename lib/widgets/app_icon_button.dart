@@ -21,13 +21,25 @@ class AppIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final Color effectiveBg = backgroundColor == AppColors.surface
+        ? (isDark ? const Color(0xFF1E293B) : AppColors.surface)
+        : backgroundColor;
+
+    final Color effectiveIconColor = iconColor == AppColors.textPrimary
+        ? (isDark ? Colors.white : AppColors.textPrimary)
+        : iconColor;
+
+    final Color effectiveBorderColor = isDark ? const Color(0xFF334155) : AppColors.borderLight;
+
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: backgroundColor,
+        color: effectiveBg,
         shape: BoxShape.circle,
-        border: border ?? Border.all(color: AppColors.borderLight, width: 1.0),
+        border: border ?? Border.all(color: effectiveBorderColor, width: 1.0),
       ),
       child: Material(
         color: Colors.transparent,
@@ -38,7 +50,7 @@ class AppIconButton extends StatelessWidget {
             child: Icon(
               icon,
               size: size * 0.5,
-              color: onPressed == null ? iconColor.withOpacity(0.5) : iconColor,
+              color: onPressed == null ? effectiveIconColor.withOpacity(0.4) : effectiveIconColor,
             ),
           ),
         ),

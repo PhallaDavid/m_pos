@@ -33,16 +33,22 @@ class AnimatedBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color barBg = isDark ? const Color(0xFF1E293B) : backgroundColor;
+    final Color barBorder = isDark ? const Color(0xFF334155) : AppColors.borderLight.withOpacity(0.6);
+    final Color effectiveActiveColor = isDark ? const Color(0xFF5CC8FF) : activeColor;
+    final Color effectiveInactiveColor = isDark ? const Color(0xFF94A3B8) : inactiveColor;
+    final Color pillBg = isDark ? const Color(0xFF0F2B66) : AppColors.primary.withOpacity(0.1);
+
     return Container(
       height: 76,
       margin: const EdgeInsets.fromLTRB(16.0, 0, 16.0, 16.0), // Floating style
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
       decoration: BoxDecoration(
-        color: backgroundColor,
+        color: barBg,
         borderRadius: BorderRadius.circular(30.0),
-        boxShadow: AppColors.softShadow,
         border: Border.all(
-          color: AppColors.borderLight.withOpacity(0.6),
+          color: barBorder,
           width: 1.0,
         ),
       ),
@@ -60,9 +66,7 @@ class AnimatedBottomBar extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
               decoration: BoxDecoration(
                 // Semi-transparent brand color overlay for active item
-                color: isSelected 
-                    ? AppColors.primary.withOpacity(0.1) 
-                    : Colors.transparent,
+                color: isSelected ? pillBg : Colors.transparent,
                 borderRadius: BorderRadius.circular(24.0),
               ),
               child: Row(
@@ -74,7 +78,7 @@ class AnimatedBottomBar extends StatelessWidget {
                     duration: const Duration(milliseconds: 200),
                     child: Icon(
                       isSelected ? items[index].activeIcon : items[index].icon,
-                      color: isSelected ? activeColor : inactiveColor,
+                      color: isSelected ? effectiveActiveColor : effectiveInactiveColor,
                       size: 24,
                     ),
                   ),
@@ -91,7 +95,7 @@ class AnimatedBottomBar extends StatelessWidget {
                               child: Text(
                                 items[index].label,
                                 style: TextStyle(
-                                  color: activeColor,
+                                  color: effectiveActiveColor,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
                                   letterSpacing: 0.1,

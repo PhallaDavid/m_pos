@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
 
 class WaveHeaderClipper extends CustomClipper<Path> {
   @override
@@ -84,10 +83,10 @@ class WaveHeaderWidget extends StatelessWidget {
       width: double.infinity,
       child: Stack(
         children: [
-          // Base Solid Slate Navy Background
+          // Base Primary Royal Navy Background (#0F2B66)
           Container(
             height: height,
-            color: AppColors.primary,
+            color: const Color(0xFF0F2B66),
           ),
 
           // Layer 1: Overlapping Fluid Wave
@@ -95,11 +94,11 @@ class WaveHeaderWidget extends StatelessWidget {
             clipper: SecondWaveClipper(),
             child: Container(
               height: height,
-              color: const Color(0xFF1E293B).withOpacity(0.85),
+              color: const Color(0xFF102A5B).withOpacity(0.85),
             ),
           ),
 
-          // Layer 2: Top Organic Wave
+          // Layer 2: Top Organic Wave with Rich Royal Navy -> Accent Blue Gradient
           ClipPath(
             clipper: WaveHeaderClipper(),
             child: Container(
@@ -107,8 +106,9 @@ class WaveHeaderWidget extends StatelessWidget {
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    Color(0xFF0F172A),
-                    Color(0xFF1E293B),
+                    Color(0xFF0F2B66), // Primary Royal Navy (#0F2B66)
+                    Color(0xFF102A5B), // Heading Navy (#102A5B)
+                    Color(0xFF1E40AF), // Deep Royal Accent
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -117,52 +117,55 @@ class WaveHeaderWidget extends StatelessWidget {
             ),
           ),
 
-          // Floating Translucent Bubbles/Circles (Matching reference image style)
+          // Radial Glow Spotlight 1 (Top Right - Accent Blue Glow #7FD3FF)
           Positioned(
-            top: -20,
+            top: -30,
             right: -30,
             child: Container(
-              width: 140,
-              height: 140,
+              width: 220,
+              height: 220,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.06),
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF7FD3FF).withOpacity(0.35),
+                    Colors.transparent,
+                  ],
+                ),
               ),
             ),
           ),
+
+          // Radial Glow Spotlight 2 (Mid Left - Light Blue Glow #D9F2FF)
           Positioned(
-            top: height * 0.35,
-            right: 40,
+            top: height * 0.25,
+            left: -40,
             child: Container(
-              width: 70,
-              height: 70,
+              width: 180,
+              height: 180,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.05),
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFFD9F2FF).withOpacity(0.30),
+                    Colors.transparent,
+                  ],
+                ),
               ),
             ),
           ),
+
+          // Floating Ambient Translucent Glass Orbs
           Positioned(
-            top: height * 0.2,
-            left: -20,
+            top: height * 0.40,
+            right: 35,
             child: Container(
-              width: 90,
-              height: 90,
+              width: 65,
+              height: 65,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.04),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 40,
-            left: sizeWidth(context) * 0.45,
-            child: Container(
-              width: 35,
-              height: 35,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.07),
+                color: Colors.white.withOpacity(0.08),
+                border: Border.all(color: Colors.white.withOpacity(0.15), width: 1.0),
               ),
             ),
           ),
