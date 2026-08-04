@@ -6,7 +6,11 @@ import 'package:http/http.dart' as http;
 import '../models/product_item.dart';
 
 class ApiService {
+  static const String _productionUrl = 'https://m-pos-api.onrender.com';
+  static bool useProduction = true;
+
   static String get baseUrl {
+    if (useProduction) return _productionUrl;
     if (kIsWeb) return 'http://localhost:3000';
     try {
       if (Platform.isAndroid) return 'http://10.0.2.2:3000';
