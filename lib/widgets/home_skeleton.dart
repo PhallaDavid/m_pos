@@ -6,7 +6,8 @@ import 'skeleton_loader.dart';
 /// Replicates the structure of the Home Screen (Revenue Card, Stat Cards, Quick Actions Grid, Orders List)
 /// to provide a smooth, professional shimmer loading state.
 class HomeSkeleton extends StatelessWidget {
-  const HomeSkeleton({super.key});
+  final Widget? headerSliver;
+  const HomeSkeleton({super.key, this.headerSliver});
 
   @override
   Widget build(BuildContext context) {
@@ -14,6 +15,7 @@ class HomeSkeleton extends StatelessWidget {
       child: CustomScrollView(
         physics: const NeverScrollableScrollPhysics(),
         slivers: [
+          if (headerSliver != null) headerSliver as Widget,
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(20.0, 20.0, 20.0, 0.0),
             sliver: SliverToBoxAdapter(

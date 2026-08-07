@@ -71,33 +71,33 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top Bar with Back Button
-                Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        if (Navigator.canPop(context)) {
-                          Navigator.pop(context);
-                        }
-                      },
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.borderLight, width: 1.0),
-                        ),
-                        child: const Icon(
-                          Icons.arrow_back_rounded,
-                          color: AppColors.heading,
-                          size: 20,
+                // Top Bar with Back Button (only shown if can pop)
+                if (Navigator.canPop(context)) ...[
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppColors.borderLight, width: 1.0),
+                          ),
+                          child: const Icon(
+                            Icons.arrow_back_rounded,
+                            color: AppColors.heading,
+                            size: 20,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 28.0),
+                    ],
+                  ),
+                  const SizedBox(height: 28.0),
+                ] else ...[
+                  const SizedBox(height: 40.0),
+                ],
 
                 // Welcome Back Header Text Block
                 const Text(
@@ -216,14 +216,28 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 32.0),
 
                 // Footer Info Text
-                const Center(
-                  child: Text(
-                    'v1.2.4 • Secure SSL Encrypted Gateway',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textMuted,
-                      fontWeight: FontWeight.w500,
-                    ),
+                Center(
+                  child: Column(
+                    children: [
+                      const Text(
+                        'v1.2.4',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textMuted,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8.0),
+                      Text(
+                        'Developed by Phalla David',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textSecondary.withOpacity(0.7),
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

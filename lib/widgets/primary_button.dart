@@ -8,6 +8,8 @@ class PrimaryButton extends StatelessWidget {
   final Widget? icon;
   final double height;
   final double borderRadius;
+  final Color? backgroundColor;
+  final Color? textColor;
 
   const PrimaryButton({
     super.key,
@@ -17,11 +19,15 @@ class PrimaryButton extends StatelessWidget {
     this.icon,
     this.height = 48.0,
     this.borderRadius = 30.0,
+    this.backgroundColor,
+    this.textColor,
   });
 
   @override
   Widget build(BuildContext context) {
     final bool isEnabled = onPressed != null && !isLoading;
+    final Color effectiveBgColor = backgroundColor ?? AppColors.primary;
+    final Color effectiveTextColor = textColor ?? Colors.white;
 
     return Container(
       width: double.infinity,
@@ -32,10 +38,10 @@ class PrimaryButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: isEnabled ? onPressed : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
-          disabledBackgroundColor: AppColors.primary.withOpacity(0.5),
-          disabledForegroundColor: Colors.white.withOpacity(0.8),
+          backgroundColor: effectiveBgColor,
+          foregroundColor: effectiveTextColor,
+          disabledBackgroundColor: effectiveBgColor.withOpacity(0.5),
+          disabledForegroundColor: effectiveTextColor.withOpacity(0.8),
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(borderRadius),
@@ -43,12 +49,12 @@ class PrimaryButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12.0),
         ),
         child: isLoading
-            ? const SizedBox(
+            ? SizedBox(
                 height: 20.0,
                 width: 20.0,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: AlwaysStoppedAnimation<Color>(effectiveTextColor),
                 ),
               )
             : FittedBox(

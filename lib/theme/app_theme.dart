@@ -3,16 +3,16 @@ import 'package:google_fonts/google_fonts.dart';
 
 class AppColors {
   // Linear & Stripe Inspired SaaS Color Palette
-  static const Color primary = Color(0xFF0F2B66); // Deep Royal Navy (#0F2B66)
+  static const Color primary = Color(0xFF2563EB); // Vibrant Royal Blue (#2563EB)
   static const Color primaryLight = Color(0xFFEEF5FB); // Secondary Card Fill
-  static const Color primaryDark = Color(0xFF102A5B); // Heading Navy (#102A5B)
+  static const Color primaryDark = Color(0xFF1E40AF); // Deep Royal Blue (#1E40AF)
   
   // Background & Surface Colors
   static const Color background = Color(0xFFF5F7FB); // Background (#F5F7FB)
   static const Color surface = Color(0xFFFFFFFF); // Surface / Card (#FFFFFF)
   static const Color secondaryCard = Color(0xFFEEF5FB); // Secondary Card (#EEF5FB)
-  static const Color navyAccent = Color(0xFF0F2B66); // Deep Royal Navy
-  static const Color navyAccentSecondary = Color(0xFF102A5B);
+  static const Color navyAccent = Color(0xFF2563EB); // Vibrant Royal Blue
+  static const Color navyAccentSecondary = Color(0xFF1E40AF);
   
   // Accent & Brand Colors
   static const Color accent = Color(0xFF5CC8FF); // Accent Blue (#5CC8FF)
@@ -41,7 +41,7 @@ class AppColors {
   static const Color teal = Color(0xFF0D9488);
   static const Color tealLight = Color(0xFFF0FDFA);
   
-  static const Color indigo = Color(0xFF0F2B66);
+  static const Color indigo = Color(0xFF2563EB);
   static const Color indigoLight = Color(0xFFEEF5FB);
   
   static const Color warning = Color(0xFFD97706); // Amber 600

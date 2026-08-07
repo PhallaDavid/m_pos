@@ -6,6 +6,7 @@ import '../widgets/primary_button.dart';
 import '../widgets/tab_pills.dart';
 import '../widgets/pie_chart_widget.dart';
 import '../services/api_service.dart';
+import '../widgets/report_skeleton.dart';
 
 class ReportDashboardScreen extends StatefulWidget {
   const ReportDashboardScreen({super.key});
@@ -23,16 +24,7 @@ class _ReportDashboardScreenState extends State<ReportDashboardScreen> {
   List<PieChartSegment> _categorySegments = [];
   bool _isLoading = true;
 
-  // Payment Methods Pie Chart Data (fallback defaults)
-  final List<PieChartSegment> _paymentSegments = [
-    const PieChartSegment(
-      label: 'Cash',
-      value: 100.0,
-      color: Color(0xFF2563EB), // Royal Navy Blue
-      percentageText: '100%',
-      amountText: '100%',
-    ),
-  ];
+
 
   @override
   void initState() {
@@ -113,6 +105,56 @@ class _ReportDashboardScreenState extends State<ReportDashboardScreen> {
   Widget build(BuildContext context) {
     final double statusBarHeight = MediaQuery.of(context).padding.top;
 
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: ReportSkeleton(
+          headerWidget: Container(
+            padding: EdgeInsets.fromLTRB(20.0, statusBarHeight + 12.0, 20.0, 12.0),
+            color: Colors.transparent,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    AppIconButton(
+                      icon: Icons.arrow_back_rounded,
+                      iconColor: AppColors.textPrimary,
+                      backgroundColor: AppColors.surface,
+                      border: Border.all(color: AppColors.borderLight, width: 1.0),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                    const SizedBox(width: 14.0),
+                    const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Sales & Report Dashboard',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          'Analytics & Revenue Breakdown',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Column(
@@ -157,33 +199,17 @@ class _ReportDashboardScreenState extends State<ReportDashboardScreen> {
                     ),
                   ],
                 ),
-                AppIconButton(
-                  icon: Icons.ios_share_rounded,
-                  iconColor: AppColors.primary,
-                  backgroundColor: AppColors.primaryLight,
-                  border: Border.all(color: AppColors.primary.withOpacity(0.3), width: 1.0),
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Exporting Sales Report PDF...'),
-                        backgroundColor: AppColors.primary,
-                      ),
-                    );
-                  },
-                ),
               ],
             ),
           ),
 
           // Scrollable Content
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : CustomScrollView(
-                    physics: const BouncingScrollPhysics(
-                      parent: AlwaysScrollableScrollPhysics(),
-                    ),
-                    slivers: [
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              slivers: [
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
                   sliver: SliverToBoxAdapter(
@@ -384,38 +410,7 @@ class _ReportDashboardScreenState extends State<ReportDashboardScreen> {
                   ),
                   const SizedBox(height: 16.0),
 
-                  // 2. Payment Method Distribution Pie Chart
-                  AppCard(
-                    padding: const EdgeInsets.all(20.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Payment Methods Share',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            Icon(Icons.credit_card_rounded, color: AppColors.primary, size: 20),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        
-                        PieChartWidget(
-                          segments: _paymentSegments,
-                          chartRadius: 180.0,
-                          centerTitle: '342 Txns',
-                          centerSubtitle: 'Payment Types',
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20.0),
+
 
                   // Export Action Button
                   PrimaryButton(

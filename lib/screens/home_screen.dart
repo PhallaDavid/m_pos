@@ -11,13 +11,458 @@ import '../widgets/secondary_button.dart';
 import '../widgets/animated_bottom_bar.dart';
 import 'login_screen.dart';
 import 'edit_profile_screen.dart';
-import 'notification_settings_screen.dart';
 import 'manage_products_screen.dart';
 import 'manage_categories_screen.dart';
 import 'report_dashboard_screen.dart';
 import '../theme/app_translations.dart';
 import '../services/api_service.dart';
 import '../widgets/home_skeleton.dart';
+import '../widgets/pos_skeleton.dart';
+import '../widgets/order_skeleton.dart';
+import '../widgets/settings_skeleton.dart';
+import '../widgets/skeleton_loader.dart';
+
+// ==========================================
+// ANIMATED HEADER WIDGETS
+// ==========================================
+
+class AnimatedHomeHeader extends StatefulWidget {
+  final String merchantName;
+  final String? merchantImageUrl;
+  final String selectedLanguage;
+  final VoidCallback onLanguageTap;
+  final VoidCallback? onAvatarTap;
+  final bool isDarkMode;
+  final bool isLoading;
+  final String Function(String khmerText, String englishText) translate;
+
+  const AnimatedHomeHeader({
+    super.key,
+    required this.merchantName,
+    this.merchantImageUrl,
+    required this.selectedLanguage,
+    required this.onLanguageTap,
+    this.onAvatarTap,
+    required this.isDarkMode,
+    required this.isLoading,
+    required this.translate,
+  });
+
+  @override
+  State<AnimatedHomeHeader> createState() => _AnimatedHomeHeaderState();
+}
+
+class _AnimatedHomeHeaderState extends State<AnimatedHomeHeader>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _entranceController;
+  
+  late Animation<double> _avatarScale;
+  late Animation<double> _fadeOpacity;
+  late Animation<Offset> _textSlide;
+
+  @override
+  void initState() {
+    super.initState();
+    
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+
+    _avatarScale = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _entranceController,
+        curve: const Interval(0.0, 0.7, curve: Curves.easeOutBack),
+      ),
+    );
+
+    _fadeOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _entranceController,
+        curve: const Interval(0.2, 0.8, curve: Curves.easeIn),
+      ),
+    );
+
+    _textSlide = Tween<Offset>(begin: const Offset(-0.08, 0.0), end: Offset.zero).animate(
+      CurvedAnimation(
+        parent: _entranceController,
+        curve: const Interval(0.2, 0.9, curve: Curves.easeOutCubic),
+      ),
+    );
+
+    _entranceController.forward();
+  }
+
+  @override
+  void dispose() {
+    _entranceController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final double statusBarHeight = MediaQuery.of(context).padding.top;
+    
+    const Color headerTitleColor = Colors.white;
+    final Color headerSubtitleColor = Colors.white.withOpacity(0.85);
+    final Color headerCardBg = widget.isDarkMode ? const Color(0xFF1E293B) : Colors.white.withOpacity(0.2);
+    final String firstName = widget.merchantName.split(" ").first;
+
+    if (widget.isLoading) {
+      final Color skeletonBaseColor = widget.isDarkMode 
+          ? Colors.white.withOpacity(0.08) 
+          : const Color(0xFFE2E8F0);
+      final Color skeletonHighlightColor = widget.isDarkMode 
+          ? Colors.white.withOpacity(0.18) 
+          : const Color(0xFFF8FAFC);
+
+      return Container(
+        padding: EdgeInsets.fromLTRB(24.0, statusBarHeight + 12.0, 24.0, 16.0),
+        decoration: const BoxDecoration(
+          color: Colors.transparent,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                // Shimmer Avatar circle skeleton
+                AppShimmer(
+                  baseColor: skeletonBaseColor,
+                  highlightColor: skeletonHighlightColor,
+                  child: const SkeletonCircle(size: 44),
+                ),
+                const SizedBox(width: 14.0),
+                
+                // Shimmer Text skeleton
+                AppShimmer(
+                  baseColor: skeletonBaseColor,
+                  highlightColor: skeletonHighlightColor,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      SkeletonText(width: 140, height: 18, borderRadius: 6),
+                      SizedBox(height: 6),
+                      SkeletonText(width: 180, height: 12, borderRadius: 4),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            
+            // Shimmer Language flag skeleton (matches rectangular flag shape 46x32)
+            AppShimmer(
+              baseColor: skeletonBaseColor,
+              highlightColor: skeletonHighlightColor,
+              child: const SkeletonBox(width: 46, height: 32, borderRadius: 6),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(24.0, statusBarHeight + 12.0, 24.0, 16.0),
+      decoration: const BoxDecoration(
+        color: Colors.transparent,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              // Animated Avatar (Clickable to Settings)
+              GestureDetector(
+                onTap: widget.onAvatarTap,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: ScaleTransition(
+                    scale: _avatarScale,
+                    child: FadeTransition(
+                      opacity: _fadeOpacity,
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: headerCardBg,
+                          border: Border.all(
+                            color: AppColors.accent.withOpacity(0.5),
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.accent.withOpacity(0.1),
+                              blurRadius: 10,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: widget.merchantImageUrl != null &&
+                                  widget.merchantImageUrl!.isNotEmpty
+                              ? Image.network(
+                                  widget.merchantImageUrl!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) => Icon(
+                                    Icons.person_rounded,
+                                    color: headerTitleColor,
+                                    size: 24,
+                                  ),
+                                )
+                              : Image.network(
+                                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) => Center(
+                                    child: Text(
+                                      'AX',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: headerTitleColor,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14.0),
+              
+              // Animated Text Section (Greeting & Subtitle)
+              FadeTransition(
+                opacity: _fadeOpacity,
+                child: SlideTransition(
+                  position: _textSlide,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.translate('ស្វាគមន៍ $firstName! 👋', 'Welcome, $firstName! 👋'),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: headerTitleColor,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        widget.translate('គ្រប់គ្រងហាង និងការលក់របស់អ្នក', 'Manage your store and sales'),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: headerSubtitleColor,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: -0.1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          
+          // Animated Language Switcher Button (Full rectangular Wikipedia Flags)
+          ScaleTransition(
+            scale: _avatarScale,
+            child: FadeTransition(
+              opacity: _fadeOpacity,
+              child: GestureDetector(
+                onTap: widget.onLanguageTap,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.4),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: ClipOval(
+                      child: Image.network(
+                        widget.selectedLanguage == 'English'
+                            ? 'https://flagcdn.com/w160/gb.png'
+                            : 'https://flagcdn.com/w160/kh.png',
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Center(
+                          child: Text(
+                            widget.selectedLanguage == 'English' ? '🇬🇧' : '🇰🇭',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class AnimatedPageHeader extends StatefulWidget {
+  final String title;
+  final String subtitle;
+  final IconData headerIcon;
+  final IconData? actionIcon;
+  final VoidCallback? onActionPressed;
+  final bool isDarkMode;
+
+  const AnimatedPageHeader({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.headerIcon,
+    this.actionIcon,
+    this.onActionPressed,
+    required this.isDarkMode,
+  });
+
+  @override
+  State<AnimatedPageHeader> createState() => _AnimatedPageHeaderState();
+}
+
+class _AnimatedPageHeaderState extends State<AnimatedPageHeader>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _opacity;
+  late Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+
+    _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
+    );
+
+    _slide = Tween<Offset>(begin: const Offset(0.0, -0.05), end: Offset.zero).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+    );
+
+    _controller.forward();
+  }
+
+  @override
+  void didUpdateWidget(covariant AnimatedPageHeader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.title != widget.title || oldWidget.subtitle != widget.subtitle) {
+      _controller.reset();
+      _controller.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final double statusBarHeight = MediaQuery.of(context).padding.top;
+    
+    const Color headerTitleColor = Colors.white;
+    final Color headerSubtitleColor = Colors.white.withOpacity(0.85);
+    final Color headerIconBg = widget.isDarkMode ? const Color(0xFF0F2B66) : Colors.white.withOpacity(0.2);
+    final Color headerIconColor = widget.isDarkMode ? const Color(0xFF5CC8FF) : Colors.white;
+    final Color headerCardBg = widget.isDarkMode ? const Color(0xFF1E293B) : Colors.white.withOpacity(0.2);
+    final Color headerBorderColor = widget.isDarkMode ? const Color(0xFF334155) : Colors.white.withOpacity(0.3);
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(20.0, statusBarHeight + 12.0, 20.0, 12.0),
+      decoration: const BoxDecoration(
+        color: Colors.transparent,
+      ),
+      child: FadeTransition(
+        opacity: _opacity,
+        child: SlideTransition(
+          position: _slide,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: headerIconBg,
+                      borderRadius: BorderRadius.circular(12.0),
+                      boxShadow: [
+                        BoxShadow(
+                          color: headerIconColor.withOpacity(0.1),
+                          blurRadius: 8,
+                          spreadRadius: 1,
+                        ),
+                      ],
+                    ),
+                    child: Icon(widget.headerIcon, color: headerIconColor, size: 22),
+                  ),
+                  const SizedBox(width: 14.0),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.title,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: headerTitleColor,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                      const SizedBox(height: 2.0),
+                      Text(
+                        widget.subtitle,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: headerSubtitleColor,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              if (widget.actionIcon != null)
+                AppIconButton(
+                  icon: widget.actionIcon!,
+                  iconColor: headerTitleColor,
+                  backgroundColor: headerCardBg,
+                  border: Border.all(color: headerBorderColor, width: 1.0),
+                  onPressed: widget.onActionPressed,
+                )
+              else
+                const SizedBox.shrink(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -255,49 +700,90 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: _isDarkMode ? const Color(0xFF0F172A) : AppColors.background,
         body: Stack(
           children: [
-            // 2. Foreground Layer (Header + Page Content)
-            Column(
-              children: [
-                // Page-Specific Dynamic Top Header Bar
-                _buildTopHeader(),
-                
-                // Main Tab View Content
-                Expanded(
-                  child: IndexedStack(
-                    index: _currentIndex,
-                    children: [
-                      _buildHomeTab(),
-                      _buildPOSTab(),
-                      _buildOrderTab(),
-                      _buildSettingTab(),
-                    ],
+            if (!_isDarkMode)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: MediaQuery.of(context).size.height * 0.45,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Color(0xFF1E40AF),
+                        Color(0xFF3B82F6),
+                        Color(0xFFF8FAFC), // Fades to light page background
+                      ],
+                      stops: [0.0, 0.7, 1.0],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
                   ),
                 ),
-              ],
+              ),
+            Positioned.fill(
+              child: IndexedStack(
+                index: _currentIndex,
+                children: [
+                  _buildHomeTab(),
+                  _buildPOSTab(),
+                  _buildOrderTab(),
+                  _buildSettingTab(),
+                ],
+              ),
             ),
           ],
         ),
         bottomNavigationBar: AnimatedBottomBar(
-          currentIndex: _currentIndex,
-          onTap: (index) => setState(() => _currentIndex = index),
+          currentIndex: () {
+            if (_currentIndex == 0) return 0;
+            if (_currentIndex == 1) return 2; // POS center
+            if (_currentIndex == 2) return 1; // Orders
+            if (_currentIndex == 3) return 4; // Settings
+            return 0;
+          }(),
+          onTap: (index) {
+            if (index == 3) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ReportDashboardScreen(),
+                ),
+              );
+            } else {
+              int targetTab = _currentIndex;
+              if (index == 0) targetTab = 0;
+              if (index == 1) targetTab = 2; // Orders
+              if (index == 2) targetTab = 1; // POS
+              if (index == 4) targetTab = 3; // Settings
+              setState(() {
+                _currentIndex = targetTab;
+              });
+            }
+          },
           items: [
             AnimatedBottomBarItem(
-              icon: Icons.home_rounded,
-              activeIcon: Icons.home_rounded,
+              icon: Icons.grid_view_outlined,
+              activeIcon: Icons.grid_view_rounded,
               label: _t('ទំព័រដើម', 'Home'),
             ),
             AnimatedBottomBarItem(
-              icon: Icons.grid_view_rounded,
-              activeIcon: Icons.grid_view_rounded,
-              label: _t('លក់ (POS)', 'POS'),
-            ),
-            AnimatedBottomBarItem(
-              icon: Icons.receipt_long_rounded,
+              icon: Icons.receipt_long_outlined,
               activeIcon: Icons.receipt_long_rounded,
               label: _t('ការកុម្ម៉ង់', 'Order'),
             ),
             AnimatedBottomBarItem(
-              icon: Icons.settings_rounded,
+              icon: Icons.point_of_sale_outlined,
+              activeIcon: Icons.point_of_sale_rounded,
+              label: _t('លក់ (POS)', 'POS'),
+            ),
+            AnimatedBottomBarItem(
+              icon: Icons.analytics_outlined,
+              activeIcon: Icons.analytics_rounded,
+              label: _t('របាយការណ៍', 'Reports'),
+            ),
+            AnimatedBottomBarItem(
+              icon: Icons.settings_outlined,
               activeIcon: Icons.settings_rounded,
               label: _t('ការកំណត់', 'Setting'),
             ),
@@ -307,482 +793,43 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Helper to show language selection bottom sheet
-  void _showLanguageSelectionSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return Container(
-              decoration: const BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24.0)),
-              ),
-              padding: const EdgeInsets.fromLTRB(24.0, 20.0, 24.0, 24.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: AppColors.borderLight,
-                        borderRadius: BorderRadius.circular(2.0),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16.0),
-                  const Text(
-                    'Select Language / ជ្រើសរើសភាសា',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 4.0),
-                  const Text(
-                    'Choose your preferred display language',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 16.0),
-                  
-                  // Option 1: English (Default)
-                  _buildLanguageOptionTile(
-                    flagEmoji: '🇬🇧',
-                    title: 'English',
-                    nativeName: 'English (Default)',
-                    isSelected: selectedLanguage == 'English',
-                    onTap: () {
-                      setState(() {
-                        _selectedLanguage = 'English';
-                      });
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Language updated to English'),
-                          backgroundColor: AppColors.primary,
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 10.0),
-
-                  // Option 2: Khmer
-                  _buildLanguageOptionTile(
-                    flagEmoji: '🇰🇭',
-                    title: 'Khmer',
-                    nativeName: 'ភាសាខ្មែរ',
-                    isSelected: selectedLanguage == 'Khmer',
-                    onTap: () {
-                      setState(() {
-                        _selectedLanguage = 'Khmer';
-                      });
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('បានប្តូរទៅជាភាសាខ្មែរ (Language changed to Khmer)'),
-                          backgroundColor: AppColors.primary,
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12.0),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildLanguageOptionTile({
-    required String flagEmoji,
-    required String title,
-    required String nativeName,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16.0),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primaryLight : AppColors.surface,
-          borderRadius: BorderRadius.circular(16.0),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.borderLight,
-            width: isSelected ? 1.5 : 1.0,
-          ),
+  // Directly toggles the language between English and Khmer (Cambodian)
+  void _toggleLanguage() {
+    setState(() {
+      _selectedLanguage = (selectedLanguage == 'English') ? 'Khmer' : 'English';
+    });
+    final bool isEn = selectedLanguage == 'English';
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          isEn ? 'Language updated to English' : 'បានប្តូរទៅជាភាសាខ្មែរជោគជ័យ',
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Text(flagEmoji, style: const TextStyle(fontSize: 24)),
-                const SizedBox(width: 12.0),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: isSelected ? AppColors.primary : AppColors.textPrimary,
-                      ),
-                    ),
-                    Text(
-                      nativeName,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isSelected ? AppColors.primary.withOpacity(0.8) : AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            if (isSelected)
-              const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 22)
-            else
-              const Icon(Icons.circle_outlined, color: AppColors.borderLight, size: 22),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Helper to show Theme / Dark Mode selection bottom sheet
-  void _showAppearanceBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return Container(
-              decoration: BoxDecoration(
-                color: _isDarkMode ? const Color(0xFF1E293B) : AppColors.surface,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24.0)),
-              ),
-              padding: const EdgeInsets.fromLTRB(24.0, 20.0, 24.0, 24.0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: _isDarkMode ? Colors.white24 : AppColors.borderLight,
-                        borderRadius: BorderRadius.circular(2.0),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16.0),
-                  Text(
-                    _t('ជ្រើសរើសរូបរាង (Appearance)', 'Appearance & Theme'),
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: _isDarkMode ? Colors.white : AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 4.0),
-                  Text(
-                    _t('ជ្រើសរើសពន្លឺ ឬ របៀបងងឹតសម្រាប់កម្មវិធី', 'Choose your preferred app theme mode'),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: _isDarkMode ? const Color(0xFF94A3B8) : AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 20.0),
-                  
-                  // Option 1: Light Mode
-                  _buildThemeOptionTile(
-                    icon: Icons.light_mode_rounded,
-                    title: _t('ពន្លឺ (Light Mode)', 'Light Mode'),
-                    subtitle: _t('ផ្ទៃសរលោង SaaS Flat Clean Aesthetic', 'Clean, bright & minimal SaaS aesthetic'),
-                    isSelected: !_isDarkMode,
-                    onTap: () {
-                      setState(() {
-                        _isDarkMode = false;
-                      });
-                      setSheetState(() {});
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(_t('បានប្តូរទៅ Light Mode', 'Theme switched to Light Mode')),
-                          backgroundColor: AppColors.primary,
-                          duration: const Duration(seconds: 1),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12.0),
-
-                  // Option 2: Dark Mode
-                  _buildThemeOptionTile(
-                    icon: Icons.dark_mode_rounded,
-                    title: _t('របៀបងងឹត (Dark Mode)', 'Dark Mode'),
-                    subtitle: _t('ផ្ទៃងងឹត ស្រួលភ្នែកពេលយប់ Deep Slate Navy', 'High-contrast dark mode for low-light environments'),
-                    isSelected: _isDarkMode,
-                    onTap: () {
-                      setState(() {
-                        _isDarkMode = true;
-                      });
-                      setSheetState(() {});
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(_t('បានប្តូរទៅ Dark Mode', 'Theme switched to Dark Mode')),
-                          backgroundColor: AppColors.primary,
-                          duration: const Duration(seconds: 1),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16.0),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildThemeOptionTile({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    final Color itemBg = _isDarkMode 
-        ? (isSelected ? const Color(0xFF0F2B66) : const Color(0xFF0F172A))
-        : (isSelected ? AppColors.primaryLight : AppColors.surface);
-    final Color itemBorder = isSelected ? AppColors.primary : (_isDarkMode ? Colors.white12 : AppColors.borderLight);
-    final Color iconColor = isSelected ? (_isDarkMode ? Colors.white : AppColors.primary) : (_isDarkMode ? Colors.white70 : AppColors.textSecondary);
-    final Color titleColor = _isDarkMode ? Colors.white : AppColors.textPrimary;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16.0),
-        decoration: BoxDecoration(
-          color: itemBg,
-          borderRadius: BorderRadius.circular(16.0),
-          border: Border.all(
-            color: itemBorder,
-            width: isSelected ? 1.5 : 1.0,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: isSelected ? AppColors.primary.withOpacity(0.2) : Colors.black.withOpacity(0.04),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, color: iconColor, size: 20),
-                ),
-                const SizedBox(width: 12.0),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: titleColor,
-                      ),
-                    ),
-                    const SizedBox(height: 2.0),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: _isDarkMode ? Colors.white60 : AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            if (isSelected)
-              const Icon(
-                Icons.check_circle_rounded,
-                color: AppColors.success,
-                size: 22,
-              ),
-          ],
-        ),
+        backgroundColor: AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 1),
       ),
     );
   }
 
   // Page-Specific Header Bar (Home, POS, Order, Setting)
   Widget _buildTopHeader() {
-    final double statusBarHeight = MediaQuery.of(context).padding.top;
-    
-    final Color headerBgColor = _isDarkMode ? const Color(0xFF0F172A) : AppColors.background;
-    final Color headerTitleColor = _isDarkMode ? Colors.white : AppColors.heading;
-    final Color headerSubtitleColor = _isDarkMode ? const Color(0xFF94A3B8) : AppColors.textSecondary;
-    final Color headerCardBg = _isDarkMode ? const Color(0xFF1E293B) : AppColors.surface;
-    final Color headerBorderColor = _isDarkMode ? const Color(0xFF334155) : AppColors.borderLight;
-    final Color headerIconBg = _isDarkMode ? const Color(0xFF0F2B66) : AppColors.primaryLight;
-    final Color headerIconColor = _isDarkMode ? const Color(0xFF5CC8FF) : AppColors.primary;
-    
     // TAB 0: Home Page Header
     if (_currentIndex == 0) {
-      return Container(
-        padding: EdgeInsets.fromLTRB(24.0, statusBarHeight + 12.0, 24.0, 16.0),
-        color: headerBgColor,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                // Compact 38x38 avatar
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: headerCardBg,
-                    border: Border.all(color: headerBorderColor, width: 1.2),
-                  ),
-                  child: ClipOval(
-                    child: _merchantImageUrl != null && _merchantImageUrl!.isNotEmpty
-                        ? Image.network(
-                            _merchantImageUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => Icon(
-                              Icons.person_rounded,
-                              color: headerTitleColor,
-                              size: 20,
-                            ),
-                          )
-                        : Image.network(
-                            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200',
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => Center(
-                              child: Text(
-                                'US',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: headerTitleColor,
-                                ),
-                              ),
-                            ),
-                          ),
-                  ),
-                ),
-                const SizedBox(width: 12.0),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          _t('សួស្តី ${_merchantName.split(" ").first}', 'Hello ${_merchantName.split(" ").first}'),
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: headerTitleColor,
-                            letterSpacing: -0.3,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        // Store Open badge
-                        // Container(
-                        //   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        //   decoration: BoxDecoration(
-                        //     color: badgeBg,
-                        //     borderRadius: BorderRadius.circular(12),
-                        //     border: Border.all(color: badgeText.withOpacity(0.3), width: 0.8),
-                        //   ),
-                        //   child: Row(
-                        //     children: [
-                        //       Container(
-                        //         width: 6,
-                        //         height: 6,
-                        //         decoration: BoxDecoration(
-                        //           color: badgeText,
-                        //           shape: BoxShape.circle,
-                        //         ),
-                        //       ),
-                        //       const SizedBox(width: 4),
-                        //       Text(
-                        //         _t('ហាងបើក', 'Store Open'),
-                        //         style: TextStyle(
-                        //           fontSize: 10,
-                        //           color: badgeText,
-                        //           fontWeight: FontWeight.bold,
-                        //         ),
-                        //       ),
-                        //     ],
-                        //   ),
-                        // ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _t('លេខសម្គាល់អាជីវករ: #9841', 'Merchant ID: #9841'),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: headerSubtitleColor,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            // Language Button: circular flag icon showing active flag
-            GestureDetector(
-              onTap: _showLanguageSelectionSheet,
-              child: Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: headerCardBg,
-                  borderRadius: BorderRadius.circular(21.0),
-                  border: Border.all(color: headerBorderColor, width: 1.0),
-                ),
-                child: Center(
-                  child: Text(
-                    selectedLanguage == 'English' ? '🇬🇧' : '🇰🇭',
-                    style: const TextStyle(fontSize: 20),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+      return AnimatedHomeHeader(
+        merchantName: _merchantName,
+        merchantImageUrl: _merchantImageUrl,
+        selectedLanguage: selectedLanguage,
+        onLanguageTap: _toggleLanguage,
+        onAvatarTap: () {
+          setState(() {
+            _currentIndex = 3;
+          });
+        },
+        isDarkMode: _isDarkMode,
+        isLoading: _isLoadingData,
+        translate: _t,
       );
     }
 
@@ -790,33 +837,21 @@ class _HomeScreenState extends State<HomeScreen> {
     String title = _t('ស្ថានីយ POS', 'POS Terminal');
     String subtitle = _t('ស្ថានីយ #1 • សកម្ម', 'Terminal #1 • Active');
     IconData headerIcon = Icons.point_of_sale_rounded;
-    IconData actionIcon = Icons.restart_alt_rounded;
+    IconData? actionIcon;
     VoidCallback? onActionPressed;
 
     if (_currentIndex == 1) {
       title = _t('ស្ថានីយ POS', 'POS Terminal');
       subtitle = _t('ស្ថានីយ #1 • សកម្ម', 'Terminal #1 • Active');
       headerIcon = Icons.point_of_sale_rounded;
-      actionIcon = Icons.restart_alt_rounded;
-      onActionPressed = () {
-        setState(() {
-          _posQuantities.updateAll((key, val) => 0);
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('បានកំណត់កន្ត្រកឡើងវិញដោយជោគជ័យ', 'Cart reset successfully'))),
-        );
-      };
+      // Removed restart/refresh icon
+      onActionPressed = null;
     } else if (_currentIndex == 2) {
       title = _t('ការកុម្ម៉ង់ និង ប្រតិបត្តិការ', 'Orders & Transactions');
       subtitle = _t('ថ្ងៃនេះ: ${ordersList.length} ការកុម្ម៉ង់', 'Today: ${ordersList.length} Orders');
       headerIcon = Icons.receipt_long_rounded;
-      actionIcon = Icons.refresh_rounded;
-      onActionPressed = () {
-        setState(() {});
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_t('បានធ្វើបច្ចុប្បន្នភាពបញ្ជីការកុម្ម៉ង់', 'Orders list refreshed'))),
-        );
-      };
+      // Removed refresh icon
+      onActionPressed = null;
     } else if (_currentIndex == 3) {
       title = _t('ការកំណត់ និង ហាង', 'Settings & Store');
       subtitle = _t('លេខសម្គាល់អាជីវករ: #9841', 'Merchant ID: #9841');
@@ -830,68 +865,64 @@ class _HomeScreenState extends State<HomeScreen> {
       };
     }
 
-    return Container(
-      padding: EdgeInsets.fromLTRB(20.0, statusBarHeight + 12.0, 20.0, 12.0),
-      color: headerBgColor,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: headerIconBg,
-                  borderRadius: BorderRadius.circular(12.0),
-                ),
-                child: Icon(headerIcon, color: headerIconColor, size: 22),
-              ),
-              const SizedBox(width: 14.0),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: headerTitleColor,
-                    ),
-                  ),
-                  const SizedBox(height: 2.0),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: headerSubtitleColor,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          AppIconButton(
-            icon: actionIcon,
-            iconColor: headerTitleColor,
-            backgroundColor: headerCardBg,
-            border: Border.all(color: headerBorderColor, width: 1.0),
-            onPressed: onActionPressed,
-          ),
-        ],
-      ),
+    return AnimatedPageHeader(
+      title: title,
+      subtitle: subtitle,
+      headerIcon: headerIcon,
+      actionIcon: actionIcon,
+      onActionPressed: onActionPressed,
+      isDarkMode: _isDarkMode,
     );
   }
-
-  // TAB 1: Home Tab (Sales Report, Quick Actions, Products List, Today's Orders)
-  // TAB 1: Home Tab (Sales Report, Quick Actions, Products List, Today's Orders)
   Widget _buildHomeTab() {
     if (_isLoadingData) {
-      return const HomeSkeleton();
+      return HomeSkeleton(
+        headerSliver: SliverToBoxAdapter(
+          child: _buildTopHeader(),
+        ),
+      );
     }
 
     final recentOrders = ordersList.take(5).toList();
+
+    final bool isDark = _isDarkMode;
+    final Color cardBgColor = isDark ? Colors.transparent : Colors.white;
+    final Gradient? cardGradient = isDark 
+        ? const LinearGradient(
+            colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          )
+        : null;
+    final Border cardBorder = Border.all(
+      color: isDark ? const Color(0xFF334155) : AppColors.borderLight,
+      width: 1.0,
+    );
+    final List<BoxShadow> cardShadow = isDark 
+        ? [] 
+        : [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            )
+          ];
+
+    final Color cardTitleColor = isDark ? Colors.white : AppColors.heading;
+    final Color cardSubtitleColor = isDark ? Colors.white.withOpacity(0.70) : AppColors.textSecondary;
+    final Color cardWalletIconColor = isDark ? Colors.white : AppColors.primary;
+    final Color cardWalletIconBg = isDark ? Colors.white.withOpacity(0.12) : AppColors.primaryLight;
+    final Color cardLiveBadgeBg = isDark ? Colors.white.withOpacity(0.10) : AppColors.successLight;
+    final Border cardLiveBadgeBorder = Border.all(
+      color: isDark ? Colors.white.withOpacity(0.20) : AppColors.success.withOpacity(0.3),
+      width: 0.8,
+    );
+    final Color cardValueColor = isDark ? Colors.white : AppColors.heading;
+    final Color cardDividerColor = isDark ? Colors.white.withOpacity(0.12) : AppColors.borderLight;
+    final Color cardFooterTimeColor = isDark ? Colors.white.withOpacity(0.70) : AppColors.textSecondary;
+    
+    final Color btnBgColor = isDark ? Colors.white : AppColors.primaryLight;
+    final Color btnTextColor = isDark ? const Color(0xFF0F172A) : AppColors.primary;
 
     return RefreshIndicator(
       onRefresh: _loadData,
@@ -902,13 +933,16 @@ class _HomeScreenState extends State<HomeScreen> {
           parent: AlwaysScrollableScrollPhysics(),
         ),
         slivers: [
+          SliverToBoxAdapter(
+            child: _buildTopHeader(),
+          ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(20.0, 20.0, 20.0, 0.0),
             sliver: SliverToBoxAdapter(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 1. Sales Report Card (Sleek Dark Slate Charcoal Card - Minimalist SaaS Style)
+                  // 1. Sales Report Card (Sleek SaaS Style - Consistent with other cards)
                   GestureDetector(
                     onTap: () {
                       Navigator.push(
@@ -920,19 +954,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                     child: Container(
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [
-                            Color(0xFF1E293B),
-                            Color(0xFF0F172A),
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+                        color: cardBgColor,
+                        gradient: cardGradient,
                         borderRadius: BorderRadius.circular(22.0),
-                        border: Border.all(
-                          color: const Color(0xFF334155),
-                          width: 1.0,
-                        ),
+                        border: cardBorder,
+                        boxShadow: cardShadow,
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(22.0),
@@ -948,12 +974,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                     Container(
                                       padding: const EdgeInsets.all(10),
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.12),
+                                        color: cardWalletIconBg,
                                         borderRadius: BorderRadius.circular(12),
                                       ),
-                                      child: const Icon(
+                                      child: Icon(
                                         Icons.account_balance_wallet_rounded,
-                                        color: Colors.white,
+                                        color: cardWalletIconColor,
                                         size: 20,
                                       ),
                                     ),
@@ -963,10 +989,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                       children: [
                                         Text(
                                           _t('សមតុល្យចំណូលលក់', 'Sales Revenue'),
-                                          style: const TextStyle(
+                                          style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.w700,
-                                            color: Colors.white,
+                                            color: cardTitleColor,
                                             letterSpacing: -0.2,
                                           ),
                                         ),
@@ -975,7 +1001,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           _t('ចំណូលសរុបហាង', 'Total Store Earnings'),
                                           style: TextStyle(
                                             fontSize: 12,
-                                            color: Colors.white.withOpacity(0.70),
+                                            color: cardSubtitleColor,
                                           ),
                                         ),
                                       ],
@@ -986,12 +1012,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.10),
+                                    color: cardLiveBadgeBg,
                                     borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.20),
-                                      width: 0.8,
-                                    ),
+                                    border: cardLiveBadgeBorder,
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
@@ -1028,10 +1051,10 @@ class _HomeScreenState extends State<HomeScreen> {
                               children: [
                                 Text(
                                   '\$${_totalSalesRevenue.toStringAsFixed(2)}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 34,
                                     fontWeight: FontWeight.w800,
-                                    color: Colors.white,
+                                    color: cardValueColor,
                                     letterSpacing: -1.0,
                                   ),
                                 ),
@@ -1061,12 +1084,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             const SizedBox(height: 18.0),
                             Divider(
-                              color: Colors.white.withOpacity(0.12),
+                              color: cardDividerColor,
                               thickness: 1.0,
                             ),
                             const SizedBox(height: 12.0),
 
-                            // Footer with Time & White View Dashboard CTA Button
+                            // Footer with Time & View Dashboard CTA Button
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
@@ -1075,14 +1098,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                     Icon(
                                       Icons.access_time_rounded,
                                       size: 14,
-                                      color: Colors.white.withOpacity(0.70),
+                                      color: cardFooterTimeColor,
                                     ),
                                     const SizedBox(width: 5),
                                     Text(
                                       _t('ធ្វើបច្ចុប្បន្នភាព 1 នាទីមុន', 'Updated 1 min ago'),
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: Colors.white.withOpacity(0.75),
+                                        color: cardFooterTimeColor,
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),
@@ -1091,23 +1114,23 @@ class _HomeScreenState extends State<HomeScreen> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
+                                    color: btnBgColor,
                                     borderRadius: BorderRadius.circular(18),
                                   ),
                                   child: Row(
                                     children: [
                                       Text(
                                         _t('មើលផ្ទាំងគ្រប់គ្រង', 'View Dashboard'),
-                                        style: const TextStyle(
+                                        style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.bold,
-                                          color: Color(0xFF0F172A),
+                                          color: btnTextColor,
                                         ),
                                       ),
                                       const SizedBox(width: 5),
-                                      const Icon(
+                                      Icon(
                                         Icons.arrow_forward_rounded,
-                                        color: Color(0xFF0F172A),
+                                        color: btnTextColor,
                                         size: 14,
                                       ),
                                     ],
@@ -1907,6 +1930,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // TAB 2: POS Tab (Product Terminal Checkout)
   Widget _buildPOSTab() {
+    if (_isLoadingData) {
+      return POSSkeleton(
+        headerSliver: SliverToBoxAdapter(
+          child: _buildTopHeader(),
+        ),
+      );
+    }
+
     double totalCart = 0;
     int totalItemsCount = 0;
 
@@ -1929,8 +1960,11 @@ class _HomeScreenState extends State<HomeScreen> {
         ? _products
         : _products.where((p) => p.category == _categories[_selectedPOSCategoryIndex - 1]).toList();
 
-    return Column(
-      children: [
+    return Container(
+      color: _isDarkMode ? const Color(0xFF0F172A) : AppColors.background,
+      child: Column(
+        children: [
+          _buildTopHeader(),
         // Main Content Area: Left Sidebar (Categories) + Right Content (Product Cards Grid)
         Expanded(
           child: Row(
@@ -1938,17 +1972,8 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               // 1. Left Vertical Category Navigation Sidebar (Compact 72px Width)
               if (_categories.isNotEmpty)
-                Container(
+                SizedBox(
                   width: 72,
-                  decoration: BoxDecoration(
-                    color: _isDarkMode ? const Color(0xFF1E293B) : AppColors.surface,
-                    border: Border(
-                      right: BorderSide(
-                        color: _isDarkMode ? const Color(0xFF334155) : AppColors.borderLight,
-                        width: 1.0,
-                      ),
-                    ),
-                  ),
                   child: ListView.builder(
                     padding: const EdgeInsets.only(top: 6.0, bottom: 12.0, left: 4.0, right: 4.0),
                     itemCount: _categories.length + 1,
@@ -1965,10 +1990,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
                       final Color tileBg = isSelected
                           ? (_isDarkMode ? const Color(0xFF0F2B66) : const Color(0xFFEEF5FB))
-                          : Colors.transparent;
+                          : (_isDarkMode ? const Color(0xFF1E293B).withOpacity(0.5) : Colors.white.withOpacity(0.5));
                       final Color tileBorder = isSelected
                           ? (_isDarkMode ? const Color(0xFF5CC8FF) : AppColors.primary)
-                          : Colors.transparent;
+                          : (_isDarkMode ? const Color(0xFF334155).withOpacity(0.4) : AppColors.borderLight.withOpacity(0.6));
                       final Color iconColor = isSelected
                           ? (_isDarkMode ? const Color(0xFF5CC8FF) : AppColors.primary)
                           : (_isDarkMode ? const Color(0xFF94A3B8) : AppColors.textSecondary);
@@ -2003,7 +2028,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               borderRadius: BorderRadius.circular(12.0),
                               border: Border.all(
                                 color: tileBorder,
-                                width: isSelected ? 1.5 : 0,
+                                width: 1.2,
                               ),
                             ),
                             child: Column(
@@ -2044,14 +2069,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   slivers: [
                     // Product Slivers or Empty State
-                    if (_isLoadingData)
-                      const SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Center(
-                          child: CircularProgressIndicator(),
-                        ),
-                      )
-                    else if (_products.isEmpty)
+                    if (_products.isEmpty)
                       SliverFillRemaining(
                         hasScrollBody: false,
                         child: Center(
@@ -2429,12 +2447,21 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         )
-      ],
+        ],
+      ),
     );
   }
 
   // TAB 3: Order Tab (Recent Transactions & Filter by Pending/Completed/Refunded)
   Widget _buildOrderTab() {
+    if (_isLoadingData) {
+      return OrderSkeleton(
+        headerSliver: SliverToBoxAdapter(
+          child: _buildTopHeader(),
+        ),
+      );
+    }
+
     final List<OrderItemModel> filteredOrders = ordersList.where((order) {
       if (_activeOrderFilter == 1) return order.status == 'Pending';
       if (_activeOrderFilter == 2) return order.status == 'Completed';
@@ -2447,6 +2474,9 @@ class _HomeScreenState extends State<HomeScreen> {
         parent: AlwaysScrollableScrollPhysics(),
       ),
       slivers: [
+        SliverToBoxAdapter(
+          child: _buildTopHeader(),
+        ),
         // Filter Pills Sliver
         SliverToBoxAdapter(
           child: Padding(
@@ -2578,11 +2608,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // TAB 4: Setting Tab (Configuration Settings)
   Widget _buildSettingTab() {
+    if (_isLoadingData) {
+      return SettingsSkeleton(
+        headerSliver: SliverToBoxAdapter(
+          child: _buildTopHeader(),
+        ),
+      );
+    }
+
     return CustomScrollView(
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
       ),
       slivers: [
+        SliverToBoxAdapter(
+          child: _buildTopHeader(),
+        ),
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
           sliver: SliverToBoxAdapter(
@@ -2721,31 +2762,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ).then((_) => setState(() {}));
             },
-          ),
-
-          _buildSettingTile(
-            icon: Icons.notifications_rounded,
-            title: _t('ការកំណត់ការជូនដំណឹង', 'Notifications'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const NotificationSettingsScreen(),
-                ),
-              );
-            },
-          ),
-
-          _buildSettingTile(
-            icon: Icons.language_rounded,
-            title: _t('ភាសាប្រព័ន្ធ (Language)', 'Language / ភាសា'),
-            onTap: _showLanguageSelectionSheet,
-          ),
-
-          _buildSettingTile(
-            icon: Icons.palette_rounded,
-            title: _t('រូបរាង (Appearance & Dark Mode)', 'Appearance & Dark Mode'),
-            onTap: _showAppearanceBottomSheet,
           ),
 
           const SizedBox(height: 16.0),
