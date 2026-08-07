@@ -801,7 +801,7 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
 
                     if (_isCreatingProduct) {
                       final newProduct = await ApiService.createProduct(
-                        name, price, stock, categoryId, imageUrl: finalImageUrl
+                        name, price, stock: stock, categoryId: categoryId, imageUrl: finalImageUrl
                       );
                       if (mounted) Navigator.pop(context); // close loader
                       setState(() {
