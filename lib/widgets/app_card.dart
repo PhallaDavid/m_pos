@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
@@ -9,6 +10,7 @@ class AppCard extends StatelessWidget {
   final double borderRadius;
   final BorderRadiusGeometry? customBorderRadius;
   final Color? backgroundColor;
+  final bool enableBlur;
 
   const AppCard({
     super.key,
@@ -19,49 +21,83 @@ class AppCard extends StatelessWidget {
     this.borderRadius = 20.0,
     this.customBorderRadius,
     this.backgroundColor,
+    this.enableBlur = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    final bool isDarkModeActive = Theme.of(context).brightness == Brightness.dark || isDark;
-    final Color effectiveBgColor = backgroundColor ?? 
-        (isDarkModeActive ? const Color(0xFF1E293B) : AppColors.surface);
+    final bool isDarkModeActive =
+        Theme.of(context).brightness == Brightness.dark || isDark;
 
-    final BorderRadiusGeometry effectiveBorderRadius = customBorderRadius ?? BorderRadius.circular(borderRadius);
+    final Color defaultBg = isDarkModeActive
+        ? const Color(0xFF1E293B).withOpacity(0.70)
+        : Colors.white.withOpacity(0.75);
 
-    Widget cardWidget = Container(
-      decoration: BoxDecoration(
-        color: effectiveBgColor,
-        borderRadius: effectiveBorderRadius,
-        border: Border.all(
-          color: isDarkModeActive ? const Color(0xFF334155) : AppColors.borderLight,
-          width: 1.0,
-        ),
-      ),
-      child: ClipRRect(
-        borderRadius: effectiveBorderRadius,
-        child: InkWell(
-          onTap: onTap,
-          splashColor: isDarkModeActive ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.02),
-          highlightColor: Colors.transparent,
-          child: Padding(
-            padding: padding,
-            child: Theme(
-              data: Theme.of(context).copyWith(
-                textTheme: Theme.of(context).textTheme.copyWith(
-                  // Override colors inside dark card
-                  bodyLarge: TextStyle(color: isDarkModeActive ? Colors.white : AppColors.textPrimary),
-                  bodyMedium: TextStyle(color: isDarkModeActive ? const Color(0xFF94A3B8) : AppColors.textSecondary),
-                  displayMedium: TextStyle(color: isDarkModeActive ? Colors.white : AppColors.textPrimary),
-                ),
+    final Color effectiveBgColor = backgroundColor ?? defaultBg;
+    final BorderRadiusGeometry effectiveBorderRadius =
+        customBorderRadius ?? BorderRadius.circular(borderRadius);
+
+    Widget cardContent = InkWell(
+      onTap: onTap,
+      splashColor: isDarkModeActive
+          ? Colors.white.withOpacity(0.05)
+          : Colors.black.withOpacity(0.02),
+      highlightColor: Colors.transparent,
+      child: Padding(
+        padding: padding,
+        child: Theme(
+          data: Theme.of(context).copyWith(
+            textTheme: Theme.of(context).textTheme.copyWith(
+              bodyLarge: TextStyle(
+                color: isDarkModeActive ? Colors.white : AppColors.textPrimary,
               ),
-              child: child,
+              bodyMedium: TextStyle(
+                color: isDarkModeActive
+                    ? const Color(0xFF94A3B8)
+                    : AppColors.textSecondary,
+              ),
+              displayMedium: TextStyle(
+                color: isDarkModeActive ? Colors.white : AppColors.textPrimary,
+              ),
             ),
           ),
+          child: child,
         ),
       ),
     );
 
-    return cardWidget;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: effectiveBorderRadius,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDarkModeActive ? 0.20 : 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: effectiveBorderRadius,
+        child: enableBlur
+            ? BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 12.0, sigmaY: 12.0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: effectiveBgColor,
+                    borderRadius: effectiveBorderRadius,
+                  ),
+                  child: cardContent,
+                ),
+              )
+            : Container(
+                decoration: BoxDecoration(
+                  color: effectiveBgColor,
+                  borderRadius: effectiveBorderRadius,
+                ),
+                child: cardContent,
+              ),
+      ),
+    );
   }
 }

@@ -4,10 +4,7 @@ class ProductVariant {
   final String name;
   final double extraPrice;
 
-  const ProductVariant({
-    required this.name,
-    this.extraPrice = 0.0,
-  });
+  const ProductVariant({required this.name, this.extraPrice = 0.0});
 }
 
 class ProductItem {
@@ -18,6 +15,7 @@ class ProductItem {
   IconData icon;
   String? imageUrl;
   bool isInStock;
+  bool isActive;
   String category;
   String? categoryId;
   List<ProductVariant> variants;
@@ -32,6 +30,7 @@ class ProductItem {
     required this.icon,
     this.imageUrl,
     required this.isInStock,
+    this.isActive = true,
     required this.category,
     this.categoryId,
     this.variants = const [],

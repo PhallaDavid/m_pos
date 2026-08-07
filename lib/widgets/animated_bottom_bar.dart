@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
@@ -28,132 +29,121 @@ class AnimatedBottomBar extends StatelessWidget {
     required this.items,
     this.backgroundColor = AppColors.surface,
     this.activeColor = AppColors.primary,
-    this.inactiveColor = const Color(0xFF94A3B8), // Muted slate gray
+    this.inactiveColor = const Color(0xFF94A3B8),
   });
 
   @override
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    // Flat colors to match modern SaaS aesthetic
-    final Color barBg = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final Color barBorder = isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
-    final Color effectiveActiveColor = isDark ? const Color(0xFF3B82F6) : activeColor;
-    final Color effectiveInactiveColor = isDark ? const Color(0xFF64748B) : inactiveColor;
 
-    final List<Color> centerGradient = isDark 
-        ? [const Color(0xFF3B82F6), const Color(0xFF93C5FD)]
-        : [const Color(0xFF2563EB), const Color(0xFF60A5FA)];
+    // White frosted glass in light mode, dark frosted glass in dark mode
+    final Color glassFill = isDark
+        ? Colors.black.withOpacity(0.55)
+        : Colors.white.withOpacity(0.70);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: barBg,
-        border: Border(
-          top: BorderSide(
-            color: barBorder,
-            width: 1.0,
-          ),
-        ),
-      ),
+    final Color glassBorder = isDark
+        ? Colors.white.withOpacity(0.12)
+        : Colors.white.withOpacity(0.80);
+
+    // Active pill: blue in both modes
+    const Color activePillColor = Color(0xFF2563EB);
+    const Color activeIconColor = Colors.white;
+    const Color activeTextColor = Colors.white;
+
+    final Color inactiveIconColor = isDark
+        ? const Color(0xFF64748B)
+        : const Color(0xFF94A3B8);
+
+    return Material(
+      color: Colors.transparent,
       child: SafeArea(
         top: false,
-        child: Container(
-          height: 68,
-          padding: const EdgeInsets.symmetric(horizontal: 8.0),
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.center,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: List.generate(items.length, (index) {
-                  final isSelected = currentIndex == index;
-                  
-                  // Center slot spacer (large floating button placeholder)
-                  if (index == 2) {
-                    return const SizedBox(width: 68);
-                  }
-                  
-                  return Expanded(
-                    child: GestureDetector(
+        child: Padding(
+          padding: const EdgeInsets.only(left: 14, right: 14, bottom: 2),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(40),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: Container(
+                height: 52,
+                decoration: BoxDecoration(
+                  color: glassFill,
+                  borderRadius: BorderRadius.circular(40),
+                  border: Border.all(color: glassBorder, width: 1.2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.12),
+                      blurRadius: 20,
+                      spreadRadius: 1,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: List.generate(items.length, (index) {
+                    final isSelected = currentIndex == index;
+
+                    return GestureDetector(
                       onTap: () => onTap(index),
                       behavior: HitTestBehavior.opaque,
                       child: MouseRegion(
                         cursor: SystemMouseCursors.click,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                              decoration: BoxDecoration(
-                                color: isSelected 
-                                    ? effectiveActiveColor.withOpacity(0.12)
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(16.0),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 280),
+                          curve: Curves.easeInOut,
+                          margin: const EdgeInsets.symmetric(vertical: 6),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isSelected ? 12.0 : 10.0,
+                            vertical: 5.0,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? activePillColor
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                isSelected
+                                    ? items[index].activeIcon
+                                    : items[index].icon,
+                                color: isSelected
+                                    ? activeIconColor
+                                    : inactiveIconColor,
+                                size: 20,
                               ),
-                              child: AnimatedScale(
-                                scale: isSelected ? 1.1 : 1.0,
-                                duration: const Duration(milliseconds: 200),
-                                child: Icon(
-                                  isSelected ? items[index].activeIcon : items[index].icon,
-                                  color: isSelected ? effectiveActiveColor : effectiveInactiveColor,
-                                  size: 24,
-                                ),
+                              AnimatedSize(
+                                duration: const Duration(milliseconds: 280),
+                                curve: Curves.easeInOut,
+                                child: isSelected
+                                    ? Padding(
+                                        padding: const EdgeInsets.only(
+                                          left: 8.0,
+                                        ),
+                                        child: Text(
+                                          items[index].label,
+                                          style: const TextStyle(
+                                            color: activeTextColor,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.2,
+                                          ),
+                                        ),
+                                      )
+                                    : const SizedBox.shrink(),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                }),
-              ),
-              
-              // Floating Center Action Button (Slot 2)
-              Positioned(
-                top: -20, // Overflows the top of the bar
-                child: GestureDetector(
-                  onTap: () => onTap(2),
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: AnimatedScale(
-                      scale: currentIndex == 2 ? 1.08 : 1.0,
-                      duration: const Duration(milliseconds: 200),
-                      child: Container(
-                        width: 58,
-                        height: 58,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: centerGradient,
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: isDark ? const Color(0xFF334155) : Colors.white,
-                            width: 2.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: effectiveActiveColor.withOpacity(0.4),
-                              blurRadius: 14,
-                              spreadRadius: 1,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.point_of_sale_rounded,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                      ),
-                    ),
-                  ),
+                    );
+                  }),
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),

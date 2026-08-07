@@ -10,6 +10,7 @@ import '../widgets/primary_button.dart';
 import '../widgets/secondary_button.dart';
 import '../widgets/rounded_text_field.dart';
 import '../services/api_service.dart';
+import '../widgets/app_toast.dart';
 
 class ManageProductsScreen extends StatefulWidget {
   final List<ProductItem> products;
@@ -39,6 +40,7 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
 
   List<Map<String, dynamic>> _dbCategories = [];
   bool _isLoadingCategories = false;
+  List<ProductItem> _productList = [];
 
   XFile? _selectedImageFile;
   String? _productImageUrl;
@@ -59,8 +61,10 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to pick image: ${e.toString()}')),
+        AppToast.show(
+          context,
+          'Failed to pick image: ${e.toString()}',
+          type: ToastType.error,
         );
       }
     }
@@ -75,7 +79,9 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
         return Container(
           decoration: BoxDecoration(
             color: isDark ? const Color(0xFF1E293B) : AppColors.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24.0)),
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(24.0),
+            ),
           ),
           padding: const EdgeInsets.fromLTRB(24.0, 20.0, 24.0, 32.0),
           child: Column(
@@ -85,7 +91,9 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF334155) : AppColors.borderLight,
+                  color: isDark
+                      ? const Color(0xFF334155)
+                      : AppColors.borderLight,
                   borderRadius: BorderRadius.circular(2.0),
                 ),
               ),
@@ -110,22 +118,34 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 16.0),
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF0F2B66) : AppColors.primaryLight,
+                          color: isDark
+                              ? const Color(0xFF0F2B66)
+                              : AppColors.primaryLight,
                           borderRadius: BorderRadius.circular(16.0),
                           border: Border.all(
-                            color: isDark ? const Color(0xFF334155) : AppColors.borderLight,
+                            color: isDark
+                                ? const Color(0xFF334155)
+                                : AppColors.borderLight,
                           ),
                         ),
                         child: Column(
                           children: [
-                            Icon(Icons.camera_alt_rounded, size: 28, color: isDark ? const Color(0xFF5CC8FF) : AppColors.primary),
+                            Icon(
+                              Icons.camera_alt_rounded,
+                              size: 28,
+                              color: isDark
+                                  ? const Color(0xFF5CC8FF)
+                                  : AppColors.primary,
+                            ),
                             const SizedBox(height: 8.0),
                             Text(
                               'Take Photo',
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white : AppColors.textPrimary,
+                                color: isDark
+                                    ? Colors.white
+                                    : AppColors.textPrimary,
                               ),
                             ),
                           ],
@@ -143,22 +163,34 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 16.0),
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF0F2B66) : AppColors.primaryLight,
+                          color: isDark
+                              ? const Color(0xFF0F2B66)
+                              : AppColors.primaryLight,
                           borderRadius: BorderRadius.circular(16.0),
                           border: Border.all(
-                            color: isDark ? const Color(0xFF334155) : AppColors.borderLight,
+                            color: isDark
+                                ? const Color(0xFF334155)
+                                : AppColors.borderLight,
                           ),
                         ),
                         child: Column(
                           children: [
-                            Icon(Icons.photo_library_rounded, size: 28, color: isDark ? const Color(0xFF5CC8FF) : AppColors.primary),
+                            Icon(
+                              Icons.photo_library_rounded,
+                              size: 28,
+                              color: isDark
+                                  ? const Color(0xFF5CC8FF)
+                                  : AppColors.primary,
+                            ),
                             const SizedBox(height: 8.0),
                             Text(
                               'Choose Gallery',
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white : AppColors.textPrimary,
+                                color: isDark
+                                    ? Colors.white
+                                    : AppColors.textPrimary,
                               ),
                             ),
                           ],
@@ -178,20 +210,36 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
   @override
   void initState() {
     super.initState();
+    _productList = List.from(widget.products);
     _loadCategories();
+    _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    try {
+      final prods = await ApiService.getProducts();
+      if (mounted) {
+        setState(() {
+          _productList = prods;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadCategories() async {
+    if (!mounted) return;
     setState(() {
       _isLoadingCategories = true;
     });
     try {
       final cats = await ApiService.getCategories();
+      if (!mounted) return;
       setState(() {
         _dbCategories = cats;
         _isLoadingCategories = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoadingCategories = false;
       });
@@ -222,7 +270,9 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
           child: Container(
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF1E293B) : AppColors.surface,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24.0)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24.0),
+              ),
             ),
             padding: const EdgeInsets.fromLTRB(24.0, 20.0, 24.0, 24.0),
             child: Column(
@@ -234,7 +284,9 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF334155) : AppColors.borderLight,
+                      color: isDark
+                          ? const Color(0xFF334155)
+                          : AppColors.borderLight,
                       borderRadius: BorderRadius.circular(2.0),
                     ),
                   ),
@@ -277,11 +329,10 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
                         _selectedCategory = name;
                       });
                       Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Category "$name" created'),
-                          backgroundColor: AppColors.success,
-                        ),
+                      AppToast.show(
+                        context,
+                        'Category "$name" created',
+                        type: ToastType.success,
                       );
                     }
                   },
@@ -343,9 +394,15 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
   Widget _buildProductList() {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color textColor = isDark ? Colors.white : AppColors.textPrimary;
-    final Color subTextColor = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
-    final Color primaryAccent = isDark ? const Color(0xFF5CC8FF) : AppColors.primary;
-    final Color primaryContainer = isDark ? const Color(0xFF0F2B66) : AppColors.primaryLight;
+    final Color subTextColor = isDark
+        ? const Color(0xFF94A3B8)
+        : AppColors.textSecondary;
+    final Color primaryAccent = isDark
+        ? const Color(0xFF5CC8FF)
+        : AppColors.primary;
+    final Color primaryContainer = isDark
+        ? const Color(0xFF0F2B66)
+        : AppColors.primaryLight;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -367,7 +424,9 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
                   _isCreatingProduct = true;
                   _isEditingProduct = false;
                   _editingProductIndex = null;
-                  _selectedCategory = widget.categories.isNotEmpty ? widget.categories.first : 'Coffee';
+                  _selectedCategory = widget.categories.isNotEmpty
+                      ? widget.categories.first
+                      : 'Coffee';
                   _productNameController.clear();
                   _productPriceController.clear();
                   _productStockController.clear();
@@ -393,7 +452,7 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
           ],
         ),
         const SizedBox(height: 16.0),
-        if (widget.products.isEmpty)
+        if (_productList.isEmpty)
           Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 40.0),
@@ -412,10 +471,12 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: widget.products.length,
+            itemCount: _productList.length,
             itemBuilder: (context, index) {
-              final product = widget.products[index];
-              final bool hasImage = product.imageUrl != null && product.imageUrl!.trim().isNotEmpty;
+              final product = _productList[index];
+              final bool hasImage =
+                  product.imageUrl != null &&
+                  product.imageUrl!.trim().isNotEmpty;
 
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12.0),
@@ -438,9 +499,17 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
                                   ? Image.network(
                                       product.imageUrl!,
                                       fit: BoxFit.cover,
-                                      errorBuilder: (ctx, err, stack) => Icon(product.icon, color: primaryAccent, size: 22),
+                                      errorBuilder: (ctx, err, stack) => Icon(
+                                        product.icon,
+                                        color: primaryAccent,
+                                        size: 22,
+                                      ),
                                     )
-                                  : Icon(product.icon, color: primaryAccent, size: 22),
+                                  : Icon(
+                                      product.icon,
+                                      color: primaryAccent,
+                                      size: 22,
+                                    ),
                             ),
                             const SizedBox(width: 14.0),
                             Expanded(
@@ -463,10 +532,15 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
                                       ),
                                       const SizedBox(width: 8.0),
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6.0,
+                                          vertical: 2.0,
+                                        ),
                                         decoration: BoxDecoration(
                                           color: primaryContainer,
-                                          borderRadius: BorderRadius.circular(4.0),
+                                          borderRadius: BorderRadius.circular(
+                                            4.0,
+                                          ),
                                         ),
                                         child: Text(
                                           product.category,
@@ -500,7 +574,9 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: product.isInStock ? subTextColor : AppColors.error,
+                              color: product.isInStock
+                                  ? subTextColor
+                                  : AppColors.error,
                             ),
                           ),
                           const SizedBox(width: 6.0),
@@ -509,10 +585,76 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
                             height: 8,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: product.isInStock ? AppColors.success : AppColors.error,
+                              color: product.isInStock
+                                  ? AppColors.success
+                                  : AppColors.error,
                             ),
                           ),
-                          const SizedBox(width: 16.0),
+                          const SizedBox(width: 10.0),
+                          GestureDetector(
+                            onTap: () async {
+                              final newActive = !product.isActive;
+                              setState(() {
+                                product.isActive = newActive;
+                              });
+                              if (product.id != null) {
+                                try {
+                                  await ApiService.updateProduct(
+                                    product.id!,
+                                    product.name,
+                                    product.price,
+                                    product.stock,
+                                    product.categoryId,
+                                    imageUrl: product.imageUrl ?? '',
+                                    isActive: newActive,
+                                  );
+                                  if (mounted) {
+                                    AppToast.show(
+                                      context,
+                                      '${product.name} is now ${newActive ? "Active" : "Inactive"}',
+                                      type: newActive
+                                          ? ToastType.success
+                                          : ToastType.warning,
+                                    );
+                                  }
+                                } catch (_) {
+                                  if (mounted) {
+                                    setState(() {
+                                      product.isActive = !newActive;
+                                    });
+                                  }
+                                }
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: product.isActive
+                                    ? AppColors.success.withOpacity(0.12)
+                                    : Colors.grey.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: product.isActive
+                                      ? AppColors.success.withOpacity(0.4)
+                                      : Colors.grey.withOpacity(0.4),
+                                ),
+                              ),
+                              child: Text(
+                                product.isActive ? 'Active' : 'Inactive',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: product.isActive
+                                      ? AppColors.success
+                                      : Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10.0),
                           GestureDetector(
                             onTap: () {
                               setState(() {
@@ -521,48 +663,97 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
                                 _editingProductIndex = index;
                                 _selectedCategory = product.category;
                                 _productNameController.text = product.name;
-                                _productPriceController.text = product.price.toString();
-                                _productStockController.text = product.stock.toString();
+                                _productPriceController.text = product.price
+                                    .toString();
+                                _productStockController.text = product.stock
+                                    .toString();
                                 _selectedImageFile = null;
                                 _productImageUrl = product.imageUrl;
                               });
                             },
-                            child: Icon(Icons.edit_rounded, size: 18, color: subTextColor),
+                            child: Icon(
+                              Icons.edit_rounded,
+                              size: 18,
+                              color: subTextColor,
+                            ),
                           ),
                           const SizedBox(width: 14.0),
                           GestureDetector(
                             onTap: () async {
-                              final productToDelete = widget.products[index];
-                              if (productToDelete.id != null) {
+                              final productToDelete = _productList[index];
+                              if (productToDelete.id != null &&
+                                  productToDelete.id!.isNotEmpty) {
                                 try {
                                   showDialog(
                                     context: context,
                                     barrierDismissible: false,
-                                    builder: (context) => const Center(child: CircularProgressIndicator()),
+                                    builder: (context) => const Center(
+                                      child: CircularProgressIndicator(),
+                                    ),
                                   );
-                                  await ApiService.deleteProduct(productToDelete.id!);
-                                  Navigator.pop(context); // close loader
-                                  setState(() {
-                                    widget.products.removeAt(index);
-                                    widget.posQuantities.remove(productToDelete.name);
-                                  });
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Product deleted successfully')),
+                                  await ApiService.deleteProduct(
+                                    productToDelete.id!,
                                   );
+                                  if (context.mounted) {
+                                    Navigator.pop(context); // close loader
+                                  }
+
+                                  if (mounted) {
+                                    setState(() {
+                                      _productList.removeAt(index);
+                                      widget.products.removeWhere(
+                                        (p) => p.name == productToDelete.name,
+                                      );
+                                      widget.posQuantities.remove(
+                                        productToDelete.name,
+                                      );
+                                    });
+                                    AppToast.show(
+                                      context,
+                                      'Product deleted successfully',
+                                      type: ToastType.success,
+                                    );
+                                  }
                                 } catch (e) {
-                                  Navigator.pop(context); // close loader
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Delete failed: ${e.toString().replaceAll("Exception: ", "")}'), backgroundColor: Colors.redAccent),
-                                  );
+                                  if (context.mounted) {
+                                    Navigator.pop(context); // close loader
+                                  }
+                                  if (mounted) {
+                                    String errorMsg = e.toString().replaceAll(
+                                      "Exception: ",
+                                      "",
+                                    );
+                                    if (errorMsg.contains(
+                                          "foreign key constraint",
+                                        ) ||
+                                        errorMsg.contains("order_items")) {
+                                      errorMsg =
+                                          "Cannot delete product with existing sales history. Set stock to 0 instead.";
+                                    }
+                                    AppToast.show(
+                                      context,
+                                      errorMsg,
+                                      type: ToastType.error,
+                                    );
+                                  }
                                 }
                               } else {
                                 setState(() {
-                                  widget.products.removeAt(index);
-                                  widget.posQuantities.remove(productToDelete.name);
+                                  _productList.removeAt(index);
+                                  widget.products.removeWhere(
+                                    (p) => p.name == productToDelete.name,
+                                  );
+                                  widget.posQuantities.remove(
+                                    productToDelete.name,
+                                  );
                                 });
                               }
                             },
-                            child: const Icon(Icons.delete_rounded, size: 18, color: AppColors.error),
+                            child: const Icon(
+                              Icons.delete_rounded,
+                              size: 18,
+                              color: AppColors.error,
+                            ),
                           ),
                         ],
                       ),
@@ -579,8 +770,12 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
   Widget _buildProductForm() {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color textColor = isDark ? Colors.white : AppColors.textPrimary;
-    final Color subTextColor = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
-    final Color primaryAccent = isDark ? const Color(0xFF5CC8FF) : AppColors.primary;
+    final Color subTextColor = isDark
+        ? const Color(0xFF94A3B8)
+        : AppColors.textSecondary;
+    final Color primaryAccent = isDark
+        ? const Color(0xFF5CC8FF)
+        : AppColors.primary;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -600,7 +795,11 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
             children: [
               Text(
                 'Product Image',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
               ),
               const SizedBox(height: 8.0),
               GestureDetector(
@@ -609,10 +808,14 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
                   height: 130,
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF0F172A) : AppColors.background,
+                    color: isDark
+                        ? const Color(0xFF0F172A)
+                        : AppColors.background,
                     borderRadius: BorderRadius.circular(16.0),
                     border: Border.all(
-                      color: isDark ? const Color(0xFF334155) : AppColors.borderLight,
+                      color: isDark
+                          ? const Color(0xFF334155)
+                          : AppColors.borderLight,
                       width: 1.0,
                     ),
                   ),
@@ -620,35 +823,56 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(15.0),
                           child: kIsWeb
-                              ? Image.network(_selectedImageFile!.path, fit: BoxFit.cover, width: double.infinity)
-                              : Image.file(File(_selectedImageFile!.path), fit: BoxFit.cover, width: double.infinity),
-                        )
-                      : (_productImageUrl != null && _productImageUrl!.trim().isNotEmpty)
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(15.0),
-                              child: Image.network(_productImageUrl!, fit: BoxFit.cover, width: double.infinity),
-                            )
-                          : Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.add_a_photo_rounded, size: 32, color: primaryAccent),
-                                const SizedBox(height: 8.0),
-                                Text(
-                                  'Upload or Take Photo',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: primaryAccent,
-                                  ),
+                              ? Image.network(
+                                  _selectedImageFile!.path,
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                )
+                              : Image.file(
+                                  File(_selectedImageFile!.path),
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
                                 ),
-                              ],
+                        )
+                      : (_productImageUrl != null &&
+                            _productImageUrl!.trim().isNotEmpty)
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(15.0),
+                          child: Image.network(
+                            _productImageUrl!,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                          ),
+                        )
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.add_a_photo_rounded,
+                              size: 32,
+                              color: primaryAccent,
                             ),
+                            const SizedBox(height: 8.0),
+                            Text(
+                              'Upload or Take Photo',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: primaryAccent,
+                              ),
+                            ),
+                          ],
+                        ),
                 ),
               ),
               const SizedBox(height: 16.0),
               Text(
                 'Product Name',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
               ),
               const SizedBox(height: 8.0),
               RoundedTextField(
@@ -659,19 +883,29 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
               const SizedBox(height: 16.0),
               Text(
                 'Price (\$)',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
               ),
               const SizedBox(height: 8.0),
               RoundedTextField(
                 controller: _productPriceController,
                 hintText: 'e.g. 3.50',
                 prefixIcon: Icons.attach_money_rounded,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
               ),
               const SizedBox(height: 16.0),
               Text(
                 'Stock Count',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
               ),
               const SizedBox(height: 8.0),
               RoundedTextField(
@@ -681,14 +915,18 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 16.0),
-              
+
               // Category wrap block
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     'Category',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                    ),
                   ),
                   GestureDetector(
                     onTap: _showAddCategoryBottomSheet,
@@ -726,11 +964,17 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
                     ),
                     selected: isSelected,
                     selectedColor: AppColors.primary,
-                    backgroundColor: isDark ? const Color(0xFF0F172A) : AppColors.surface,
+                    backgroundColor: isDark
+                        ? const Color(0xFF0F172A)
+                        : AppColors.surface,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                       side: BorderSide(
-                        color: isSelected ? AppColors.primary : (isDark ? const Color(0xFF334155) : AppColors.borderLight),
+                        color: isSelected
+                            ? AppColors.primary
+                            : (isDark
+                                  ? const Color(0xFF334155)
+                                  : AppColors.borderLight),
                         width: 1.0,
                       ),
                     ),
@@ -768,12 +1012,17 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
                 text: 'Save Product',
                 onPressed: () async {
                   final name = _productNameController.text.trim();
-                  final price = double.tryParse(_productPriceController.text.trim()) ?? 0.0;
-                  final stock = int.tryParse(_productStockController.text.trim()) ?? 0;
+                  final price =
+                      double.tryParse(_productPriceController.text.trim()) ??
+                      0.0;
+                  final stock =
+                      int.tryParse(_productStockController.text.trim()) ?? 0;
 
                   if (name.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Please enter a product name')),
+                    AppToast.show(
+                      context,
+                      'Please enter a product name',
+                      type: ToastType.warning,
                     );
                     return;
                   }
@@ -789,19 +1038,27 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
                     showDialog(
                       context: context,
                       barrierDismissible: false,
-                      builder: (context) => const Center(child: CircularProgressIndicator()),
+                      builder: (context) =>
+                          const Center(child: CircularProgressIndicator()),
                     );
 
                     String finalImageUrl = _productImageUrl ?? '';
                     if (_selectedImageFile != null) {
                       final bytes = await _selectedImageFile!.readAsBytes();
-                      final uploadedUrl = await ApiService.uploadImage(bytes, _selectedImageFile!.name);
+                      final uploadedUrl = await ApiService.uploadImage(
+                        bytes,
+                        _selectedImageFile!.name,
+                      );
                       finalImageUrl = uploadedUrl;
                     }
 
                     if (_isCreatingProduct) {
                       final newProduct = await ApiService.createProduct(
-                        name, price, stock: stock, categoryId: categoryId, imageUrl: finalImageUrl
+                        name,
+                        price,
+                        stock: stock,
+                        categoryId: categoryId,
+                        imageUrl: finalImageUrl,
                       );
                       if (mounted) Navigator.pop(context); // close loader
                       setState(() {
@@ -812,7 +1069,9 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
                             price: price,
                             stock: stock,
                             icon: Icons.coffee_rounded,
-                            imageUrl: finalImageUrl.isNotEmpty ? finalImageUrl : null,
+                            imageUrl: finalImageUrl.isNotEmpty
+                                ? finalImageUrl
+                                : null,
                             isInStock: stock > 0,
                             category: _selectedCategory ?? 'Coffee',
                             categoryId: categoryId,
@@ -827,14 +1086,22 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
                         _productImageUrl = null;
                       });
                       if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Product created successfully'), backgroundColor: AppColors.success),
+                        AppToast.show(
+                          context,
+                          'Product created successfully',
+                          type: ToastType.success,
                         );
                       }
-                    } else if (_isEditingProduct && _editingProductIndex != null) {
+                    } else if (_isEditingProduct &&
+                        _editingProductIndex != null) {
                       final product = widget.products[_editingProductIndex!];
                       await ApiService.updateProduct(
-                        product.id!, name, price, stock, categoryId, imageUrl: finalImageUrl
+                        product.id!,
+                        name,
+                        price,
+                        stock,
+                        categoryId,
+                        imageUrl: finalImageUrl,
                       );
                       if (mounted) Navigator.pop(context); // close loader
                       setState(() {
@@ -842,7 +1109,9 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
                         product.name = name;
                         product.price = price;
                         product.stock = stock;
-                        product.imageUrl = finalImageUrl.isNotEmpty ? finalImageUrl : null;
+                        product.imageUrl = finalImageUrl.isNotEmpty
+                            ? finalImageUrl
+                            : null;
                         product.isInStock = stock > 0;
                         product.category = _selectedCategory ?? 'Coffee';
                         product.categoryId = categoryId;
@@ -862,16 +1131,20 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
                         _productImageUrl = null;
                       });
                       if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Product updated successfully'), backgroundColor: AppColors.success),
+                        AppToast.show(
+                          context,
+                          'Product updated successfully',
+                          type: ToastType.success,
                         );
                       }
                     }
                   } catch (e) {
                     if (mounted) {
                       Navigator.pop(context); // close loader
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Operation failed: ${e.toString().replaceAll("Exception: ", "")}'), backgroundColor: Colors.redAccent),
+                      AppToast.show(
+                        context,
+                        'Operation failed: ${e.toString().replaceAll("Exception: ", "")}',
+                        type: ToastType.error,
                       );
                     }
                   }
@@ -879,7 +1152,7 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
               ),
             ),
           ],
-        )
+        ),
       ],
     );
   }

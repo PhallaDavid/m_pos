@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/rounded_text_field.dart';
 import 'home_screen.dart';
@@ -27,33 +28,23 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _handleLogin() async {
     if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
-
+      setState(() => _isLoading = true);
       try {
         await ApiService.login(_emailController.text, _passwordController.text);
         if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
+          setState(() => _isLoading = false);
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(
-              builder: (context) => const HomeScreen(),
-            ),
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
           );
         }
       } catch (e) {
         if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(e.toString().replaceAll('Exception: ', '')),
-              backgroundColor: AppColors.error,
-            ),
+          setState(() => _isLoading = false);
+          AppToast.show(
+            context,
+            e.toString().replaceAll('Exception: ', ''),
+            type: ToastType.error,
           );
         }
       }
@@ -65,41 +56,17 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24.0,
+              vertical: 32.0,
+            ),
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Top Bar with Back Button (only shown if can pop)
-                if (Navigator.canPop(context)) ...[
-                  Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: AppColors.borderLight, width: 1.0),
-                          ),
-                          child: const Icon(
-                            Icons.arrow_back_rounded,
-                            color: AppColors.heading,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 28.0),
-                ] else ...[
-                  const SizedBox(height: 40.0),
-                ],
-
-                // Welcome Back Header Text Block
+                // Header
                 const Text(
                   'Welcome Back',
                   style: TextStyle(
@@ -117,15 +84,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: AppColors.textSecondary,
                   ),
                 ),
-                const SizedBox(height: 28.0),
+                const SizedBox(height: 32.0),
 
-                // Form Area
+                // Form
                 Form(
                   key: _formKey,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Email Field Label & Input
                       const Text(
                         'Email Address',
                         style: TextStyle(
@@ -141,18 +107,17 @@ class _LoginScreenState extends State<LoginScreen> {
                         prefixIcon: Icons.mail_outline_rounded,
                         keyboardType: TextInputType.emailAddress,
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
+                          if (value == null || value.isEmpty)
                             return 'Email is required';
-                          }
-                          if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                          if (!RegExp(
+                            r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                          ).hasMatch(value)) {
                             return 'Please enter a valid email';
                           }
                           return null;
                         },
                       ),
                       const SizedBox(height: 20.0),
-
-                      // Password Field Label & Input
                       const Text(
                         'Password',
                         style: TextStyle(
@@ -169,42 +134,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         obscureText: true,
                         textInputAction: TextInputAction.done,
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
+                          if (value == null || value.isEmpty)
                             return 'Password is required';
-                          }
-                          if (value.length < 6) {
+                          if (value.length < 6)
                             return 'Password must be at least 6 characters';
-                          }
                           return null;
                         },
                       ),
-                      const SizedBox(height: 8.0),
-
-                      // Forgot Password Button
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Password reset instructions sent to admin email'),
-                                backgroundColor: AppColors.primary,
-                              ),
-                            );
-                          },
-                          child: const Text(
-                            'Forgot Password?',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16.0),
-
-                      // Log In Button
+                      const SizedBox(height: 28.0),
                       PrimaryButton(
                         text: 'Log In',
                         isLoading: _isLoading,
@@ -213,9 +150,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 32.0),
+                const SizedBox(height: 48.0),
 
-                // Footer Info Text
+                // Footer
                 Center(
                   child: Column(
                     children: [
@@ -227,7 +164,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(height: 8.0),
+                      const SizedBox(height: 6.0),
                       Text(
                         'Developed by Phalla David',
                         style: TextStyle(

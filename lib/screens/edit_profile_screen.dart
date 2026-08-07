@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/rounded_text_field.dart';
 import '../widgets/app_icon_button.dart';
@@ -48,8 +49,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load profile: ${e.toString().replaceAll("Exception: ", "")}')),
+      AppToast.show(
+        context,
+        'Failed to load profile: ${e.toString().replaceAll("Exception: ", "")}',
+        type: ToastType.error,
       );
     }
   }
@@ -81,16 +84,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _imageUrl = url;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Avatar uploaded successfully!'), backgroundColor: AppColors.success),
+      AppToast.show(
+        context,
+        'Avatar uploaded successfully!',
+        type: ToastType.success,
       );
     } catch (e) {
       if (mounted) Navigator.pop(context); // close loader
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Upload failed: ${e.toString().replaceAll("Exception: ", "")}'),
-          backgroundColor: Colors.redAccent,
-        ),
+      AppToast.show(
+        context,
+        'Upload failed: ${e.toString().replaceAll("Exception: ", "")}',
+        type: ToastType.error,
       );
     }
   }
@@ -109,7 +113,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color textColor = isDark ? Colors.white : AppColors.textPrimary;
-    final Color subTextColor = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+    final Color subTextColor = isDark
+        ? const Color(0xFF94A3B8)
+        : AppColors.textSecondary;
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F172A) : AppColors.background,
@@ -147,179 +153,231 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-            // Centered Photo Editor
-            Center(
-              child: GestureDetector(
-                onTap: _pickAndUploadImage,
-                child: Stack(
-                  children: [
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isDark ? const Color(0xFF0F2B66) : AppColors.primaryLight,
-                        border: Border.all(color: isDark ? const Color(0xFF334155) : AppColors.borderLight, width: 3.0),
-                      ),
-                      child: ClipOval(
-                        child: _imageUrl != null && _imageUrl!.isNotEmpty
-                            ? Image.network(
-                                _imageUrl!,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, err, stack) => Icon(
-                                  Icons.store_rounded,
-                                  size: 40,
-                                  color: isDark ? const Color(0xFF5CC8FF) : AppColors.primary,
+                        // Centered Photo Editor
+                        Center(
+                          child: GestureDetector(
+                            onTap: _pickAndUploadImage,
+                            child: Stack(
+                              children: [
+                                Container(
+                                  width: 100,
+                                  height: 100,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: isDark
+                                        ? const Color(0xFF0F2B66)
+                                        : AppColors.primaryLight,
+                                    border: Border.all(
+                                      color: isDark
+                                          ? const Color(0xFF334155)
+                                          : AppColors.borderLight,
+                                      width: 3.0,
+                                    ),
+                                  ),
+                                  child: ClipOval(
+                                    child:
+                                        _imageUrl != null &&
+                                            _imageUrl!.isNotEmpty
+                                        ? Image.network(
+                                            _imageUrl!,
+                                            fit: BoxFit.cover,
+                                            errorBuilder:
+                                                (context, err, stack) => Icon(
+                                                  Icons.store_rounded,
+                                                  size: 40,
+                                                  color: isDark
+                                                      ? const Color(0xFF5CC8FF)
+                                                      : AppColors.primary,
+                                                ),
+                                          )
+                                        : Icon(
+                                            Icons.store_rounded,
+                                            size: 40,
+                                            color: isDark
+                                                ? const Color(0xFF5CC8FF)
+                                                : AppColors.primary,
+                                          ),
+                                  ),
                                 ),
-                              )
-                            : Icon(
-                                Icons.store_rounded,
-                                size: 40,
-                                color: isDark ? const Color(0xFF5CC8FF) : AppColors.primary,
+                                Positioned(
+                                  bottom: 0,
+                                  right: 0,
+                                  child: Container(
+                                    width: 30,
+                                    height: 30,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: AppColors.success,
+                                      border: Border.all(
+                                        color: isDark
+                                            ? const Color(0xFF0F172A)
+                                            : Colors.white,
+                                        width: 2.0,
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.edit_rounded,
+                                      size: 14,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 32.0),
+                        const SizedBox(height: 12.0),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? const Color(0xFF1E293B)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(20.0),
+                            border: Border.all(
+                              color: isDark
+                                  ? const Color(0xFF334155)
+                                  : const Color(0xFFE2E8F0),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(
+                                  isDark ? 0.15 : 0.04,
+                                ),
+                                blurRadius: 16,
+                                offset: const Offset(0, 4),
                               ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        width: 30,
-                        height: 30,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.success,
-                          border: Border.all(color: isDark ? const Color(0xFF0F172A) : Colors.white, width: 2.0),
+                            ],
+                          ),
+                          padding: const EdgeInsets.all(20.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Merchant Owner Name',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: textColor,
+                                ),
+                              ),
+                              const SizedBox(height: 8.0),
+                              RoundedTextField(
+                                controller: _merchantNameController,
+                                hintText: 'e.g. John Doe',
+                                prefixIcon: Icons.person_rounded,
+                              ),
+                              const SizedBox(height: 16.0),
+                              Text(
+                                'Store Name',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: textColor,
+                                ),
+                              ),
+                              const SizedBox(height: 8.0),
+                              RoundedTextField(
+                                controller: _storeNameController,
+                                hintText: 'Central Coffee Hub',
+                                prefixIcon: Icons.store_rounded,
+                              ),
+                              const SizedBox(height: 16.0),
+                              Text(
+                                'Store Contact Email (Read Only)',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: subTextColor,
+                                ),
+                              ),
+                              const SizedBox(height: 8.0),
+                              RoundedTextField(
+                                controller: _storeEmailController,
+                                hintText: 'contact@coffeehub.com',
+                                prefixIcon: Icons.mail_rounded,
+                                readOnly: true,
+                              ),
+                              const SizedBox(height: 16.0),
+                              Text(
+                                'Store Contact Phone',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: textColor,
+                                ),
+                              ),
+                              const SizedBox(height: 8.0),
+                              RoundedTextField(
+                                controller: _storePhoneController,
+                                hintText: '+1 (555) 000-0000',
+                                prefixIcon: Icons.phone_rounded,
+                                keyboardType: TextInputType.phone,
+                              ),
+                              const SizedBox(height: 16.0),
+                              Text(
+                                'Store Address',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: textColor,
+                                ),
+                              ),
+                              const SizedBox(height: 8.0),
+                              RoundedTextField(
+                                controller: _storeAddressController,
+                                hintText: 'e.g. 123 Oak Road, City',
+                                prefixIcon: Icons.location_on_rounded,
+                              ),
+                            ],
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.edit_rounded,
-                          size: 14,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 32.0),
+                        const SizedBox(height: 32.0),
 
-            // Form inputs
-            Text(
-              'Store Configuration',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: textColor,
-              ),
-            ),
-            const SizedBox(height: 12.0),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Merchant Owner Name',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
-                ),
-                const SizedBox(height: 8.0),
-                RoundedTextField(
-                  controller: _merchantNameController,
-                  hintText: 'e.g. John Doe',
-                  prefixIcon: Icons.person_rounded,
-                ),
-                const SizedBox(height: 16.0),
-                Text(
-                  'Store Name',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
-                ),
-                const SizedBox(height: 8.0),
-                RoundedTextField(
-                  controller: _storeNameController,
-                  hintText: 'Central Coffee Hub',
-                  prefixIcon: Icons.store_rounded,
-                ),
-                const SizedBox(height: 16.0),
-                Text(
-                  'Store Contact Email (Read Only)',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: subTextColor),
-                ),
-                const SizedBox(height: 8.0),
-                RoundedTextField(
-                  controller: _storeEmailController,
-                  hintText: 'contact@coffeehub.com',
-                  prefixIcon: Icons.mail_rounded,
-                  readOnly: true,
-                ),
-                const SizedBox(height: 16.0),
-                Text(
-                  'Store Contact Phone',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
-                ),
-                const SizedBox(height: 8.0),
-                RoundedTextField(
-                  controller: _storePhoneController,
-                  hintText: '+1 (555) 000-0000',
-                  prefixIcon: Icons.phone_rounded,
-                  keyboardType: TextInputType.phone,
-                ),
-                const SizedBox(height: 16.0),
-                Text(
-                  'Store Address',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textColor),
-                ),
-                const SizedBox(height: 8.0),
-                RoundedTextField(
-                  controller: _storeAddressController,
-                  hintText: 'e.g. 123 Oak Road, City',
-                  prefixIcon: Icons.location_on_rounded,
+                        PrimaryButton(
+                          text: 'Save Details',
+                          onPressed: () async {
+                            try {
+                              showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (context) => const Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                              );
+
+                              await ApiService.updateProfile(
+                                name: _merchantNameController.text.trim(),
+                                storeName: _storeNameController.text.trim(),
+                                phone: _storePhoneController.text.trim(),
+                                address: _storeAddressController.text.trim(),
+                                imageUrl: _imageUrl ?? '',
+                              );
+
+                              Navigator.pop(context); // close loader
+
+                              AppToast.show(
+                                context,
+                                'Profile details saved successfully',
+                                type: ToastType.success,
+                              );
+                              Navigator.pop(context);
+                            } catch (e) {
+                              Navigator.pop(context); // close loader
+                              AppToast.show(
+                                context,
+                                'Save failed: ${e.toString().replaceAll("Exception: ", "")}',
+                                type: ToastType.error,
+                              );
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 32.0),
-
-            PrimaryButton(
-              text: 'Save Details',
-              onPressed: () async {
-                try {
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (context) => const Center(child: CircularProgressIndicator()),
-                  );
-                  
-                  await ApiService.updateProfile(
-                    name: _merchantNameController.text.trim(),
-                    storeName: _storeNameController.text.trim(),
-                    phone: _storePhoneController.text.trim(),
-                    address: _storeAddressController.text.trim(),
-                    imageUrl: _imageUrl ?? '',
-                  );
-                  
-                  Navigator.pop(context); // close loader
-                  
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Profile details saved successfully'),
-                      backgroundColor: AppColors.success,
-                    ),
-                  );
-                  Navigator.pop(context);
-                } catch (e) {
-                  Navigator.pop(context); // close loader
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Save failed: ${e.toString().replaceAll("Exception: ", "")}'),
-                      backgroundColor: Colors.redAccent,
-                    ),
-                  );
-                }
-              },
-            ),
-          ],
-        ),
-      ),
-    ),
-  ],
-),
-);
+    );
   }
 }
