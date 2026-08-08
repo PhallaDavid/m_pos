@@ -65,7 +65,7 @@ class AnimatedBottomBar extends StatelessWidget {
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
               child: Container(
-                height: 52,
+                height: 64,
                 decoration: BoxDecoration(
                   color: glassFill,
                   borderRadius: BorderRadius.circular(40),
@@ -92,10 +92,10 @@ class AnimatedBottomBar extends StatelessWidget {
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 280),
                           curve: Curves.easeInOut,
-                          margin: const EdgeInsets.symmetric(vertical: 6),
+                          margin: const EdgeInsets.symmetric(vertical: 8),
                           padding: EdgeInsets.symmetric(
-                            horizontal: isSelected ? 12.0 : 10.0,
-                            vertical: 5.0,
+                            horizontal: isSelected ? 16.0 : 12.0,
+                            vertical: 8.0,
                           ),
                           decoration: BoxDecoration(
                             color: isSelected
@@ -113,7 +113,7 @@ class AnimatedBottomBar extends StatelessWidget {
                                 color: isSelected
                                     ? activeIconColor
                                     : inactiveIconColor,
-                                size: 20,
+                                size: 24,
                               ),
                               AnimatedSize(
                                 duration: const Duration(milliseconds: 280),
@@ -127,7 +127,7 @@ class AnimatedBottomBar extends StatelessWidget {
                                           items[index].label,
                                           style: const TextStyle(
                                             color: activeTextColor,
-                                            fontSize: 13,
+                                            fontSize: 14,
                                             fontWeight: FontWeight.w600,
                                             letterSpacing: 0.2,
                                           ),

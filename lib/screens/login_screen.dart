@@ -54,7 +54,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFFE2E8F0), // Slate 200
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -93,7 +93,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Email Address',
+                        'Email',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
@@ -103,12 +103,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 8.0),
                       RoundedTextField(
                         controller: _emailController,
-                        hintText: 'name@merchant.com',
+                        hintText: 'email@merchant.com',
                         prefixIcon: Icons.mail_outline_rounded,
                         keyboardType: TextInputType.emailAddress,
                         validator: (value) {
-                          if (value == null || value.isEmpty)
+                          if (value == null || value.isEmpty) {
                             return 'Email is required';
+                          }
                           if (!RegExp(
                             r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
                           ).hasMatch(value)) {
@@ -168,7 +169,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Text(
                         'Developed by Phalla David',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 13,
                           color: AppColors.textSecondary.withOpacity(0.7),
                           fontWeight: FontWeight.w500,
                           letterSpacing: 0.5,

@@ -1204,54 +1204,63 @@ class _HomeScreenState extends State<HomeScreen> {
                                       mainAxisAlignment:
                                           MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Row(
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.all(10),
-                                              decoration: BoxDecoration(
-                                                color: cardWalletIconBg,
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                              ),
-                                              child: Icon(
-                                                Icons
-                                                    .account_balance_wallet_rounded,
-                                                color: cardWalletIconColor,
-                                                size: 20,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  _t(
-                                                    'សមតុល្យចំណូលលក់',
-                                                    'Sales Revenue',
-                                                  ),
-                                                  style: TextStyle(
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: cardTitleColor,
-                                                    letterSpacing: -0.2,
-                                                  ),
+                                        Expanded(
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.all(10),
+                                                decoration: BoxDecoration(
+                                                  color: cardWalletIconBg,
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
                                                 ),
-                                                const SizedBox(height: 2),
-                                                Text(
-                                                  _t(
-                                                    'ចំណូលសរុបហាង',
-                                                    'Total Store Earnings',
-                                                  ),
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: cardSubtitleColor,
-                                                  ),
+                                                child: Icon(
+                                                  Icons
+                                                      .account_balance_wallet_rounded,
+                                                  color: cardWalletIconColor,
+                                                  size: 20,
                                                 ),
-                                              ],
-                                            ),
-                                          ],
+                                              ),
+                                              const SizedBox(width: 12),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      _t(
+                                                        'សមតុល្យចំណូលលក់',
+                                                        'Sales Revenue',
+                                                      ),
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        fontWeight: FontWeight.w700,
+                                                        color: cardTitleColor,
+                                                        letterSpacing: -0.2,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                    const SizedBox(height: 2),
+                                                    Text(
+                                                      _t(
+                                                        'ចំណូលសរុបហាង',
+                                                        'Total Store Earnings',
+                                                      ),
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: cardSubtitleColor,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
+                                        const SizedBox(width: 8),
                                         // Live Report Chip
                                         Container(
                                           padding: const EdgeInsets.symmetric(
@@ -2556,7 +2565,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return Container(
-      color: _isDarkMode ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      color: _isDarkMode ? const Color(0xFF0F172A) : const Color(0xFFE2E8F0),
       child: Column(
         children: [
           // 1. Fixed Top Header Bar
