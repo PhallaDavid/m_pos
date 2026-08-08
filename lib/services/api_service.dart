@@ -3,11 +3,16 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/product_item.dart';
 
 class ApiService {
   static const String _productionUrl = 'https://m-pos-api.onrender.com';
   static bool useProduction = true;
+
+  static const String _tokenKey = 'auth_token';
+  static const String _userEmailKey = 'user_email';
+  static const String _storeIdKey = 'store_id';
 
   static String get baseUrl {
     if (useProduction) return _productionUrl;
@@ -21,6 +26,30 @@ class ApiService {
   static String? _token;
   static String? userEmail;
   static String? storeId;
+  static const String defaultStoreId = '7bca151b-7a69-4a5e-8695-f4ad62c45991';
+
+  static String get activeStoreId {
+    if (storeId != null && storeId!.isNotEmpty) {
+      return storeId!;
+    }
+    return defaultStoreId;
+  }
+
+  static Future<bool> initSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString(_tokenKey);
+      if (token != null && token.isNotEmpty) {
+        _token = token;
+        userEmail = prefs.getString(_userEmailKey);
+        storeId = prefs.getString(_storeIdKey);
+        return true;
+      }
+    } catch (e) {
+      print('Error initializing session: $e');
+    }
+    return false;
+  }
 
   static Map<String, String> _getHeaders() {
     final headers = {'Content-Type': 'application/json'};
@@ -50,6 +79,16 @@ class ApiService {
           resData['user']?['store_id'] ??
           resData['store_id'] ??
           resData['user']?['store']?['id'];
+
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        if (_token != null) await prefs.setString(_tokenKey, _token!);
+        if (userEmail != null) await prefs.setString(_userEmailKey, userEmail!);
+        if (storeId != null) await prefs.setString(_storeIdKey, storeId!);
+      } catch (e) {
+        print('Error saving session: $e');
+      }
+
       return {'success': true, 'user': resData['user'], 'access_token': _token};
     } else {
       throw Exception(resData['message'] ?? 'Login failed');
@@ -58,12 +97,23 @@ class ApiService {
 
   // Auth: Logout
   static Future<void> logout() async {
-    if (_token == null) return;
-    final url = Uri.parse('$baseUrl/api/auth/logout');
-    await http.post(url, headers: _getHeaders());
+    if (_token != null) {
+      try {
+        final url = Uri.parse('$baseUrl/api/auth/logout');
+        await http.post(url, headers: _getHeaders());
+      } catch (_) {}
+    }
     _token = null;
     userEmail = null;
     storeId = null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_tokenKey);
+      await prefs.remove(_userEmailKey);
+      await prefs.remove(_storeIdKey);
+    } catch (e) {
+      print('Error clearing session: $e');
+    }
   }
 
   // 2. Stores: Create New Store & User Profile
@@ -139,12 +189,10 @@ class ApiService {
   static Future<List<Map<String, dynamic>>> getCategories({
     String? storeIdParam,
   }) async {
-    final targetStoreId = storeIdParam ?? storeId;
-    String path = '$baseUrl/api/categories';
-    if (targetStoreId != null && targetStoreId.isNotEmpty) {
-      path += '?store_id=$targetStoreId';
-    }
-    final url = Uri.parse(path);
+    final targetStoreId = (storeIdParam != null && storeIdParam.isNotEmpty)
+        ? storeIdParam
+        : activeStoreId;
+    final url = Uri.parse('$baseUrl/api/categories?store_id=$targetStoreId');
     print('DEBUG [ApiService.getCategories] URL: $url');
     final response = await http.get(url, headers: _getHeaders());
     print(
@@ -152,22 +200,12 @@ class ApiService {
     );
 
     if (response.statusCode == 200) {
-      List<dynamic> list = jsonDecode(response.body);
-      // Fallback: If store-filtered query returns 0 items, fetch all categories to include global/unassigned items
-      if (list.isEmpty && targetStoreId != null && targetStoreId.isNotEmpty) {
-        print(
-          'DEBUG [ApiService.getCategories] Store query returned 0 items. Triggering fallback fetch for all categories...',
-        );
-        final fallbackResponse = await http.get(
-          Uri.parse('$baseUrl/api/categories'),
-          headers: _getHeaders(),
-        );
-        print(
-          'DEBUG [ApiService.getCategories] Fallback Status: ${fallbackResponse.statusCode}, Body: ${fallbackResponse.body}',
-        );
-        if (fallbackResponse.statusCode == 200) {
-          list = jsonDecode(fallbackResponse.body);
-        }
+      dynamic decoded = jsonDecode(response.body);
+      List<dynamic> list = [];
+      if (decoded is List) {
+        list = decoded;
+      } else if (decoded is Map<String, dynamic>) {
+        list = decoded['data'] ?? decoded['categories'] ?? [];
       }
       return list.map((item) => item as Map<String, dynamic>).toList();
     } else {
@@ -180,35 +218,67 @@ class ApiService {
     final url = Uri.parse('$baseUrl/api/categories/$id');
     final response = await http.delete(url, headers: _getHeaders());
 
-    final resData = jsonDecode(response.body);
-    if (response.statusCode != 200 || resData['status'] != 'success') {
+    if (response.statusCode == 200 ||
+        response.statusCode == 201 ||
+        response.statusCode == 204) {
+      return;
+    }
+    try {
+      final resData = jsonDecode(response.body);
       throw Exception(resData['message'] ?? 'Failed to delete category');
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('Failed to delete category (${response.statusCode})');
     }
   }
 
   // Categories: Create Category for Store
   static Future<Map<String, dynamic>> createCategory(
     String name, {
+    bool isActive = true,
     String? storeIdParam,
   }) async {
-    final targetStoreId = storeIdParam ?? storeId;
+    final targetStoreId = (storeIdParam != null && storeIdParam.isNotEmpty)
+        ? storeIdParam
+        : activeStoreId;
     final url = Uri.parse('$baseUrl/api/categories');
-    final Map<String, dynamic> body = {'name': name};
-    if (targetStoreId != null && targetStoreId.isNotEmpty) {
-      body['store_id'] = targetStoreId;
-    }
+    final Map<String, dynamic> body = {
+      'name': name,
+      'store_id': targetStoreId,
+      'is_active': isActive,
+    };
 
+    print('DEBUG [ApiService.createCategory] URL: $url, Body: $body');
     final response = await http.post(
       url,
       headers: _getHeaders(),
       body: jsonEncode(body),
     );
+    print(
+      'DEBUG [ApiService.createCategory] Status: ${response.statusCode}, Body: ${response.body}',
+    );
 
-    final resData = jsonDecode(response.body);
-    if (response.statusCode == 201 && resData['status'] == 'success') {
-      return resData['data'];
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final resData = jsonDecode(response.body);
+      if (resData is Map<String, dynamic>) {
+        if (resData.containsKey('data') &&
+            resData['data'] is Map<String, dynamic>) {
+          return resData['data'];
+        }
+        return resData;
+      }
+      return {'name': name, 'store_id': targetStoreId, 'is_active': isActive};
     } else {
-      throw Exception(resData['message'] ?? 'Failed to create category');
+      try {
+        final resData = jsonDecode(response.body);
+        throw Exception(
+          resData['message'] ??
+              'Failed to create category (${response.statusCode})',
+        );
+      } catch (e) {
+        if (e is Exception) rethrow;
+        throw Exception('Failed to create category (${response.statusCode})');
+      }
     }
   }
 
@@ -219,12 +289,15 @@ class ApiService {
     bool isActive = true,
     String? storeIdParam,
   }) async {
-    final targetStoreId = storeIdParam ?? storeId;
+    final targetStoreId = (storeIdParam != null && storeIdParam.isNotEmpty)
+        ? storeIdParam
+        : activeStoreId;
     final url = Uri.parse('$baseUrl/api/categories/$id');
-    final Map<String, dynamic> body = {'name': name, 'is_active': isActive};
-    if (targetStoreId != null && targetStoreId.isNotEmpty) {
-      body['store_id'] = targetStoreId;
-    }
+    final Map<String, dynamic> body = {
+      'name': name,
+      'is_active': isActive,
+      'store_id': targetStoreId,
+    };
 
     final response = await http.put(
       url,
@@ -232,9 +305,15 @@ class ApiService {
       body: jsonEncode(body),
     );
 
-    final resData = jsonDecode(response.body);
-    if (response.statusCode != 200 || resData['status'] != 'success') {
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return;
+    }
+    try {
+      final resData = jsonDecode(response.body);
       throw Exception(resData['message'] ?? 'Failed to update category');
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('Failed to update category (${response.statusCode})');
     }
   }
 
@@ -243,20 +322,15 @@ class ApiService {
     String? categoryId,
     String? storeIdParam,
   }) async {
-    final targetStoreId = storeIdParam ?? storeId;
-    final List<String> queryParams = [];
-    if (targetStoreId != null && targetStoreId.isNotEmpty) {
-      queryParams.add('store_id=$targetStoreId');
-    }
+    final targetStoreId = (storeIdParam != null && storeIdParam.isNotEmpty)
+        ? storeIdParam
+        : activeStoreId;
+    final List<String> queryParams = ['store_id=$targetStoreId'];
     if (categoryId != null && categoryId.isNotEmpty) {
       queryParams.add('category_id=$categoryId');
     }
 
-    String path = '$baseUrl/api/products';
-    if (queryParams.isNotEmpty) {
-      path += '?${queryParams.join('&')}';
-    }
-    final url = Uri.parse(path);
+    final url = Uri.parse('$baseUrl/api/products?${queryParams.join('&')}');
     print('DEBUG [ApiService.getProducts] URL: $url');
     final response = await http.get(url, headers: _getHeaders());
     print(
@@ -264,27 +338,14 @@ class ApiService {
     );
 
     if (response.statusCode == 200) {
-      List<dynamic> list = jsonDecode(response.body);
-      // Fallback: If store-filtered query returns 0 items, fetch products without store_id filter so unassigned items are visible
-      if (list.isEmpty && targetStoreId != null && targetStoreId.isNotEmpty) {
-        print(
-          'DEBUG [ApiService.getProducts] Store query returned 0 items. Triggering fallback fetch for all products...',
-        );
-        String fallbackPath = '$baseUrl/api/products';
-        if (categoryId != null && categoryId.isNotEmpty) {
-          fallbackPath += '?category_id=$categoryId';
-        }
-        final fallbackResponse = await http.get(
-          Uri.parse(fallbackPath),
-          headers: _getHeaders(),
-        );
-        print(
-          'DEBUG [ApiService.getProducts] Fallback Status: ${fallbackResponse.statusCode}, Body: ${fallbackResponse.body}',
-        );
-        if (fallbackResponse.statusCode == 200) {
-          list = jsonDecode(fallbackResponse.body);
-        }
+      dynamic decoded = jsonDecode(response.body);
+      List<dynamic> list = [];
+      if (decoded is List) {
+        list = decoded;
+      } else if (decoded is Map<String, dynamic>) {
+        list = decoded['data'] ?? decoded['products'] ?? [];
       }
+
       // Fetch categories map to match category name
       final categories = await getCategories(storeIdParam: targetStoreId);
       final catMap = {for (var c in categories) c['id']: c['name']};
@@ -365,7 +426,10 @@ class ApiService {
     bool isActive = true,
     String? storeIdParam,
   }) async {
-    final targetStoreId = storeIdParam ?? storeId;
+    String? targetStoreId = storeIdParam ?? storeId;
+    if (targetStoreId == null || targetStoreId.isEmpty) {
+      targetStoreId = '7bca151b-7a69-4a5e-8695-f4ad62c45991';
+    }
     final url = Uri.parse('$baseUrl/api/products');
     final Map<String, dynamic> body = {
       'name': name,
@@ -374,33 +438,52 @@ class ApiService {
       'category_id': categoryId,
       'image_url': imageUrl,
       'is_active': isActive,
+      'store_id': targetStoreId,
     };
-    if (targetStoreId != null && targetStoreId.isNotEmpty) {
-      body['store_id'] = targetStoreId;
-    }
 
+    print('DEBUG [ApiService.createProduct] URL: $url, Body: $body');
     final response = await http.post(
       url,
       headers: _getHeaders(),
       body: jsonEncode(body),
     );
+    print(
+      'DEBUG [ApiService.createProduct] Status: ${response.statusCode}, Body: ${response.body}',
+    );
 
-    final resData = jsonDecode(response.body);
-    if (response.statusCode == 201 && resData['status'] == 'success') {
-      final item = resData['data'];
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      final resData = jsonDecode(response.body);
+      final item =
+          (resData is Map<String, dynamic> && resData.containsKey('data'))
+          ? resData['data']
+          : resData;
       return ProductItem(
-        id: item['id'],
-        name: item['name'],
-        price: (item['price'] as num).toDouble(),
-        stock: item['stock'] as int,
+        id: item['id']?.toString(),
+        name: item['name']?.toString() ?? name,
+        price: (item['price'] as num?)?.toDouble() ?? price,
+        stock: (item['stock'] as int?) ?? stock,
         icon: Icons.local_cafe_rounded,
-        isInStock: (item['stock'] as int) > 0,
-        isActive: isActive,
-        category: '',
-        categoryId: item['category_id'],
+        imageUrl:
+            (item['image_url'] != null &&
+                item['image_url'].toString().isNotEmpty)
+            ? item['image_url'].toString()
+            : null,
+        isInStock: ((item['stock'] as int?) ?? stock) > 0,
+        isActive: item['is_active'] ?? isActive,
+        category: 'Other',
+        categoryId: item['category_id']?.toString(),
       );
     } else {
-      throw Exception(resData['message'] ?? 'Failed to create product');
+      try {
+        final resData = jsonDecode(response.body);
+        throw Exception(
+          resData['message'] ??
+              'Failed to create product (${response.statusCode})',
+        );
+      } catch (e) {
+        if (e is Exception) rethrow;
+        throw Exception('Failed to create product (${response.statusCode})');
+      }
     }
   }
 

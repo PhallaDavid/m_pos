@@ -46,7 +46,9 @@ class _RoundedTextFieldState extends State<RoundedTextField> {
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
     final Color textColor = isDark ? Colors.white : AppColors.textPrimary;
-    final Color iconColor = isDark ? const Color(0xFF94A3B8) : AppColors.textSecondary;
+    final Color iconColor = isDark
+        ? const Color(0xFF94A3B8)
+        : AppColors.textSecondary;
 
     return TextFormField(
       controller: widget.controller,
@@ -57,7 +59,7 @@ class _RoundedTextFieldState extends State<RoundedTextField> {
       onChanged: widget.onChanged,
       readOnly: widget.readOnly,
       onTap: widget.onTap,
-      cursorColor: AppColors.primary,
+      cursorColor: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
       style: TextStyle(
         fontSize: 15.0,
         color: textColor,
@@ -65,15 +67,20 @@ class _RoundedTextFieldState extends State<RoundedTextField> {
       ),
       decoration: InputDecoration(
         isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14.0,
+          vertical: 12.0,
+        ),
         hintText: widget.hintText,
-        prefixIcon: widget.prefixIcon != null 
-            ? Icon(widget.prefixIcon, size: 20.0, color: iconColor) 
+        prefixIcon: widget.prefixIcon != null
+            ? Icon(widget.prefixIcon, size: 20.0, color: iconColor)
             : null,
         suffixIcon: widget.obscureText
             ? IconButton(
                 icon: Icon(
-                  _obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                  _obscureText
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
                   size: 20.0,
                   color: iconColor,
                 ),

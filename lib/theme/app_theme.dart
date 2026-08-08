@@ -12,7 +12,9 @@ class AppColors {
   ); // Deep Royal Blue (#1E40AF)
 
   // Background & Surface Colors
-  static const Color background = Color(0xFFF5F7FB); // Background (#F5F7FB)
+  static const Color background = Color(
+    0xFFF1F5F9,
+  ); // Slate 100 Background (Matches Login Screen)
   static const Color surface = Color(0xFFFFFFFF); // Surface / Card (#FFFFFF)
   static const Color secondaryCard = Color(
     0xFFEEF5FB,
@@ -190,7 +192,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(30.0),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+          borderSide: const BorderSide(color: Color(0xFF94A3B8), width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(30.0),
@@ -286,7 +288,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(30.0),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+          borderSide: const BorderSide(color: Color(0xFF64748B), width: 1.5),
         ),
       ),
     );

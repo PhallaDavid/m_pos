@@ -11,6 +11,8 @@ import '../widgets/secondary_button.dart';
 import '../widgets/rounded_text_field.dart';
 import '../services/api_service.dart';
 import '../widgets/app_toast.dart';
+import '../widgets/app_empty_state.dart';
+import '../widgets/list_skeleton.dart';
 
 class ManageProductsScreen extends StatefulWidget {
   final List<ProductItem> products;
@@ -40,6 +42,7 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
 
   List<Map<String, dynamic>> _dbCategories = [];
   bool _isLoadingCategories = false;
+  bool _isLoadingProducts = true;
   List<ProductItem> _productList = [];
 
   XFile? _selectedImageFile;
@@ -221,9 +224,16 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
       if (mounted) {
         setState(() {
           _productList = prods;
+          _isLoadingProducts = false;
         });
       }
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoadingProducts = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadCategories() async {
@@ -373,21 +383,23 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
         ),
         centerTitle: true,
       ),
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(
-          parent: AlwaysScrollableScrollPhysics(),
-        ),
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.all(20.0),
-            sliver: SliverToBoxAdapter(
-              child: _isCreatingProduct || _isEditingProduct
-                  ? _buildProductForm()
-                  : _buildProductList(),
+      body: _isLoadingProducts && !_isCreatingProduct && !_isEditingProduct
+          ? const ListSkeleton()
+          : CustomScrollView(
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.all(20.0),
+                  sliver: SliverToBoxAdapter(
+                    child: _isCreatingProduct || _isEditingProduct
+                        ? _buildProductForm()
+                        : _buildProductList(),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -456,14 +468,28 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
           Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 40.0),
-              child: Text(
-                'No products in catalog.\nTap "+ Add New" to create one.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: subTextColor,
-                  height: 1.4,
-                ),
+              child: AppEmptyState(
+                icon: Icons.inventory_2_outlined,
+                title: 'No Products Found',
+                description:
+                    'Your product catalog is empty. Tap below to add your first merchant item.',
+                actionLabel: 'Add New Product',
+                actionIcon: Icons.add_rounded,
+                onAction: () {
+                  setState(() {
+                    _isCreatingProduct = true;
+                    _isEditingProduct = false;
+                    _editingProductIndex = null;
+                    _selectedCategory = widget.categories.isNotEmpty
+                        ? widget.categories.first
+                        : 'Coffee';
+                    _productNameController.clear();
+                    _productPriceController.clear();
+                    _productStockController.clear();
+                    _selectedImageFile = null;
+                    _productImageUrl = null;
+                  });
+                },
               ),
             ),
           )
@@ -1060,23 +1086,23 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
                         categoryId: categoryId,
                         imageUrl: finalImageUrl,
                       );
+                      final createdItem = ProductItem(
+                        id: newProduct.id,
+                        name: name,
+                        price: price,
+                        stock: stock,
+                        icon: Icons.coffee_rounded,
+                        imageUrl: finalImageUrl.isNotEmpty
+                            ? finalImageUrl
+                            : null,
+                        isInStock: stock > 0,
+                        category: _selectedCategory ?? 'Coffee',
+                        categoryId: categoryId,
+                      );
                       if (mounted) Navigator.pop(context); // close loader
                       setState(() {
-                        widget.products.add(
-                          ProductItem(
-                            id: newProduct.id,
-                            name: name,
-                            price: price,
-                            stock: stock,
-                            icon: Icons.coffee_rounded,
-                            imageUrl: finalImageUrl.isNotEmpty
-                                ? finalImageUrl
-                                : null,
-                            isInStock: stock > 0,
-                            category: _selectedCategory ?? 'Coffee',
-                            categoryId: categoryId,
-                          ),
-                        );
+                        widget.products.add(createdItem);
+                        _productList.insert(0, createdItem);
                         widget.posQuantities[name] = 0;
                         _isCreatingProduct = false;
                         _productNameController.clear();
@@ -1085,6 +1111,7 @@ class _ManageProductsScreenState extends State<ManageProductsScreen> {
                         _selectedImageFile = null;
                         _productImageUrl = null;
                       });
+                      await _loadProducts();
                       if (mounted) {
                         AppToast.show(
                           context,

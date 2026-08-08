@@ -11,6 +11,7 @@ import '../widgets/primary_button.dart';
 import '../widgets/secondary_button.dart';
 import '../widgets/animated_bottom_bar.dart';
 import '../widgets/app_toast.dart';
+import '../widgets/app_empty_state.dart';
 import '../widgets/fade_slide_in.dart';
 import 'login_screen.dart';
 import 'edit_profile_screen.dart';
@@ -24,6 +25,9 @@ import '../widgets/pos_skeleton.dart';
 import '../widgets/order_skeleton.dart';
 import '../widgets/settings_skeleton.dart';
 import '../widgets/skeleton_loader.dart';
+import '../widgets/scale_fade_in.dart';
+import '../widgets/bouncy_badge.dart';
+import '../widgets/press_scale.dart';
 
 // ==========================================
 // ANIMATED HEADER WIDGETS
@@ -504,6 +508,53 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
+class PosCartItem {
+  final ProductItem product;
+  final ProductVariant? variant;
+  final String? sugarLevel;
+  final List<ProductVariant> addOns;
+  int quantity;
+
+  PosCartItem({
+    required this.product,
+    this.variant,
+    this.sugarLevel,
+    this.addOns = const [],
+    this.quantity = 1,
+  });
+
+  double get unitPrice {
+    final vExtra = variant?.extraPrice ?? 0.0;
+    final addOnsExtra = addOns.fold(0.0, (sum, a) => sum + a.extraPrice);
+    return product.price + vExtra + addOnsExtra;
+  }
+
+  double get itemTotal => unitPrice * quantity;
+
+  List<String> get optionsText {
+    final List<String> opts = [];
+    if (variant != null) opts.add(variant!.name);
+    if (sugarLevel != null) opts.add('$sugarLevel Sugar');
+    if (addOns.isNotEmpty) opts.add(addOns.map((a) => a.name).join(', '));
+    return opts;
+  }
+
+  bool matches(
+    ProductItem p,
+    ProductVariant? v,
+    String? sugar,
+    List<ProductVariant> newAddOns,
+  ) {
+    if (product.name != p.name) return false;
+    if (variant?.name != v?.name) return false;
+    if (sugarLevel != sugar) return false;
+    final set1 = addOns.map((a) => a.name).toSet();
+    final set2 = newAddOns.map((a) => a.name).toSet();
+    if (set1.length != set2.length) return false;
+    return set1.containsAll(set2);
+  }
+}
+
 class OrderItemModel {
   final String id;
   final String title;
@@ -555,6 +606,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _posSearchController = TextEditingController();
   String _posSearchQuery = '';
   int _selectedPOSCategoryIndex = 0;
+  int _previousPOSCategoryIndex = 0;
   List<String> _categories = ['Coffee', 'Bakery'];
   List<Map<String, dynamic>> _dbCategories = [];
 
@@ -585,8 +637,59 @@ class _HomeScreenState extends State<HomeScreen> {
   List<ProductItem> _products = [];
   bool _isLoadingData = false;
 
-  // State for POS terminal checkout quantities
-  final Map<String, int> _posQuantities = {};
+  // POS Cart Items State
+  final List<PosCartItem> _posCartItems = [];
+
+  Map<String, int> get _posQuantities {
+    final Map<String, int> map = {};
+    for (final item in _posCartItems) {
+      map[item.product.name] = (map[item.product.name] ?? 0) + item.quantity;
+    }
+    return map;
+  }
+
+  int _getProductTotalQty(String productName) {
+    return _posCartItems
+        .where((item) => item.product.name == productName)
+        .fold(0, (sum, item) => sum + item.quantity);
+  }
+
+  void _addOrUpdateCartItem(
+    ProductItem product, {
+    ProductVariant? variant,
+    String? sugarLevel,
+    List<ProductVariant> addOns = const [],
+  }) {
+    final index = _posCartItems.indexWhere(
+      (item) => item.matches(product, variant, sugarLevel, addOns),
+    );
+    if (index != -1) {
+      _posCartItems[index].quantity += 1;
+    } else {
+      _posCartItems.add(
+        PosCartItem(
+          product: product,
+          variant: variant,
+          sugarLevel: sugarLevel,
+          addOns: List.from(addOns),
+          quantity: 1,
+        ),
+      );
+    }
+  }
+
+  void _decrementCartItemForProduct(ProductItem product) {
+    final index = _posCartItems.lastIndexWhere(
+      (item) => item.product.name == product.name,
+    );
+    if (index != -1) {
+      if (_posCartItems[index].quantity > 1) {
+        _posCartItems[index].quantity -= 1;
+      } else {
+        _posCartItems.removeAt(index);
+      }
+    }
+  }
 
   String _merchantName = 'Alexa Smith';
   String _merchantEmail = 'alexa.smith@merchant.com';
@@ -761,6 +864,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (!mounted) return;
       setState(() {
+        dbCats.sort((a, b) {
+          final bool aActive = a['is_active'] == null || a['is_active'] == true;
+          final bool bActive = b['is_active'] == null || b['is_active'] == true;
+          if (aActive != bActive) return aActive ? -1 : 1;
+          return 0;
+        });
+
         final catNames = dbCats.map((c) => c['name'] as String).toList();
         if (products.any((p) => p.category == 'Other') &&
             !catNames.contains('Other')) {
@@ -818,7 +928,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       colors: [
                         Color(0xFF1E40AF),
                         Color(0xFF3B82F6),
-                        Color(0xFFF8FAFC), // Fades to light page background
+                        Color(
+                          0xFFF1F5F9,
+                        ), // Fades to login/page background (Slate 100)
                       ],
                       stops: [0.0, 0.7, 1.0],
                       begin: Alignment.topCenter,
@@ -828,34 +940,23 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             Positioned.fill(
-              child: IndexedStack(
-                index: _currentIndex,
-                children: [
-                  _buildHomeTab(),
-                  _buildPOSTab(),
-                  _buildOrderTab(),
-                  _buildSettingTab(),
-                ],
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                child: KeyedSubtree(
+                  key: ValueKey<int>(_currentIndex),
+                  child: _buildCurrentTab(),
+                ),
               ),
             ),
           ],
         ),
         bottomNavigationBar: AnimatedBottomBar(
-          currentIndex: () {
-            if (_currentIndex == 0) return 0; // Home
-            if (_currentIndex == 2) return 1; // Orders
-            if (_currentIndex == 1) return 2; // POS
-            if (_currentIndex == 3) return 3; // Settings
-            return 0;
-          }(),
+          currentIndex: _currentIndex,
           onTap: (index) {
-            int targetTab = _currentIndex;
-            if (index == 0) targetTab = 0; // Home
-            if (index == 1) targetTab = 2; // Orders
-            if (index == 2) targetTab = 1; // POS
-            if (index == 3) targetTab = 3; // Settings
             setState(() {
-              _currentIndex = targetTab;
+              _currentIndex = index;
             });
           },
           items: [
@@ -865,14 +966,14 @@ class _HomeScreenState extends State<HomeScreen> {
               label: _t('ទំព័រដើម', 'Home'),
             ),
             AnimatedBottomBarItem(
+              icon: Icons.point_of_sale_outlined,
+              activeIcon: Icons.point_of_sale_rounded,
+              label: _t('លក់ POS', 'POS'),
+            ),
+            AnimatedBottomBarItem(
               icon: Icons.assignment_outlined,
               activeIcon: Icons.assignment_rounded,
               label: _t('ការកុម្ម៉ង់', 'Orders'),
-            ),
-            AnimatedBottomBarItem(
-              icon: Icons.shopping_cart_outlined,
-              activeIcon: Icons.shopping_cart_rounded,
-              label: _t('លក់ POS', 'POS'),
             ),
             AnimatedBottomBarItem(
               icon: Icons.settings_outlined,
@@ -883,6 +984,21 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildCurrentTab() {
+    switch (_currentIndex) {
+      case 0:
+        return _buildHomeTab();
+      case 1:
+        return _buildPOSTab();
+      case 2:
+        return _buildOrderTab();
+      case 3:
+        return _buildSettingTab();
+      default:
+        return _buildHomeTab();
+    }
   }
 
   // Directly toggles the language between English and Khmer (Cambodian)
@@ -915,14 +1031,14 @@ class _HomeScreenState extends State<HomeScreen> {
     // Dynamic header configurations for POS, Order, and Setting tabs
     String title = _t('ស្ថានីយ POS', 'POS Terminal');
     String subtitle = _t('ស្ថានីយ #1 • សកម្ម', 'Terminal #1 • Active');
-    IconData headerIcon = Icons.shopping_cart_rounded;
+    IconData headerIcon = Icons.point_of_sale_rounded;
     IconData? actionIcon;
     VoidCallback? onActionPressed;
 
     if (_currentIndex == 1) {
       title = _t('ស្ថានីយ POS', 'POS Terminal');
       subtitle = _t('ស្ថានីយ #1 • សកម្ម', 'Terminal #1 • Active');
-      headerIcon = Icons.shopping_cart_rounded;
+      headerIcon = Icons.point_of_sale_rounded;
       // Removed restart/refresh icon
       onActionPressed = null;
     } else if (_currentIndex == 2) {
@@ -1208,7 +1324,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                           child: Row(
                                             children: [
                                               Container(
-                                                padding: const EdgeInsets.all(10),
+                                                padding: const EdgeInsets.all(
+                                                  10,
+                                                ),
                                                 decoration: BoxDecoration(
                                                   color: cardWalletIconBg,
                                                   borderRadius:
@@ -1234,12 +1352,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                                       ),
                                                       style: TextStyle(
                                                         fontSize: 14,
-                                                        fontWeight: FontWeight.w700,
+                                                        fontWeight:
+                                                            FontWeight.w700,
                                                         color: cardTitleColor,
                                                         letterSpacing: -0.2,
                                                       ),
                                                       maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
                                                     ),
                                                     const SizedBox(height: 2),
                                                     Text(
@@ -1249,10 +1369,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                                       ),
                                                       style: TextStyle(
                                                         fontSize: 12,
-                                                        color: cardSubtitleColor,
+                                                        color:
+                                                            cardSubtitleColor,
                                                       ),
                                                       maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
                                                     ),
                                                   ],
                                                 ),
@@ -1756,9 +1878,6 @@ class _HomeScreenState extends State<HomeScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        ProductVariant? activeVariant =
-            selectedVariants[product.name] ??
-            (product.variants.isNotEmpty ? product.variants.first : null);
         String activeSugar =
             selectedSugarLevels[product.name] ??
             (product.sugarLevels.isNotEmpty
@@ -1770,13 +1889,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
         return StatefulBuilder(
           builder: (context, setSheetState) {
-            final double variantPrice = activeVariant?.extraPrice ?? 0.0;
             final double addOnsPrice = activeAddOns.fold(
               0.0,
               (sum, item) => sum + item.extraPrice,
             );
-            final double calculatedPrice =
-                product.price + variantPrice + addOnsPrice;
+            final double calculatedPrice = product.price + addOnsPrice;
 
             return Container(
               decoration: BoxDecoration(
@@ -1888,119 +2005,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     const SizedBox(height: 20.0),
-
-                    // Section 1: Variant Selection (Size / Shot serving)
-                    if (product.variants.isNotEmpty) ...[
-                      Text(
-                        _t(
-                          'ជម្រើសទំហំ / ការឆុង (Variant)',
-                          'Size / Serving Variant',
-                        ),
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: _isDarkMode
-                              ? Colors.white
-                              : AppColors.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 10.0),
-                      Column(
-                        children: product.variants.map((v) {
-                          final isSelected = activeVariant?.name == v.name;
-                          final Color cardBg = isSelected
-                              ? (_isDarkMode
-                                    ? const Color(0xFF0F2B66)
-                                    : AppColors.primaryLight)
-                              : (_isDarkMode
-                                    ? const Color(0xFF0F172A)
-                                    : AppColors.surface);
-                          final Color cardBorder = isSelected
-                              ? (_isDarkMode
-                                    ? const Color(0xFF5CC8FF)
-                                    : AppColors.primary)
-                              : (_isDarkMode
-                                    ? const Color(0xFF334155)
-                                    : AppColors.borderLight);
-                          final Color cardTitle = isSelected
-                              ? (_isDarkMode
-                                    ? const Color(0xFF5CC8FF)
-                                    : AppColors.primary)
-                              : (_isDarkMode
-                                    ? Colors.white
-                                    : AppColors.textPrimary);
-                          final Color cardSub = isSelected
-                              ? (_isDarkMode
-                                    ? const Color(0xFF5CC8FF)
-                                    : AppColors.primary)
-                              : (_isDarkMode
-                                    ? const Color(0xFF94A3B8)
-                                    : AppColors.textSecondary);
-
-                          return GestureDetector(
-                            onTap: () {
-                              setSheetState(() {
-                                activeVariant = v;
-                              });
-                            },
-                            child: Container(
-                              margin: const EdgeInsets.only(bottom: 8.0),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14.0,
-                                vertical: 12.0,
-                              ),
-                              decoration: BoxDecoration(
-                                color: cardBg,
-                                borderRadius: BorderRadius.circular(12.0),
-                                border: Border.all(
-                                  color: cardBorder,
-                                  width: isSelected ? 1.5 : 1.0,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        isSelected
-                                            ? Icons.radio_button_checked
-                                            : Icons.radio_button_off,
-                                        size: 18,
-                                        color: cardTitle,
-                                      ),
-                                      const SizedBox(width: 10.0),
-                                      Text(
-                                        v.name,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: isSelected
-                                              ? FontWeight.bold
-                                              : FontWeight.w500,
-                                          color: cardTitle,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  Text(
-                                    v.extraPrice > 0
-                                        ? '+\$${v.extraPrice.toStringAsFixed(2)}'
-                                        : _t('ឥតគិតថ្លៃ', 'Free'),
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: cardSub,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: 16.0),
-                    ],
 
                     // Section 2: Sugar Level Percent Selector
                     if (product.sugarLevels.isNotEmpty) ...[
@@ -2203,33 +2207,443 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       onPressed: () {
                         setState(() {
-                          if (activeVariant != null) {
-                            selectedVariants[product.name] = activeVariant!;
-                          }
-                          selectedSugarLevels[product.name] = activeSugar;
-                          selectedAddOns[product.name] = List.from(
-                            activeAddOns,
+                          _addOrUpdateCartItem(
+                            product,
+                            sugarLevel: activeSugar,
+                            addOns: activeAddOns,
                           );
-
-                          final currentQty = _posQuantities[product.name] ?? 0;
-                          if (currentQty == 0) {
-                            _posQuantities[product.name] = 1;
-                          }
                         });
                         Navigator.pop(context);
-                        AppToast.show(
-                          context,
-                          _t(
-                            'ជម្រើស ${product.name} ត្រូវបានរក្សាទុក!',
-                            '${product.name} options saved!',
-                          ),
-                          type: ToastType.success,
-                          duration: const Duration(seconds: 1),
-                        );
                       },
                     ),
                   ],
                 ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Process order checkout and print invoice
+  Future<void> _processCheckoutOrder() async {
+    if (_posCartItems.isEmpty) return;
+
+    final List<String> cartSummary = [];
+    final List<Map<String, dynamic>> invoiceItems = [];
+    final List<Map<String, dynamic>> orderItems = [];
+    double totalCart = 0;
+    int totalItemsCount = 0;
+
+    for (final item in _posCartItems) {
+      final optsText = item.optionsText.join(', ');
+      cartSummary.add(item.product.name);
+      invoiceItems.add({
+        'name': item.product.name,
+        'variant': optsText.isNotEmpty ? optsText : null,
+        'qty': item.quantity,
+        'unitPrice': item.unitPrice,
+        'itemTotal': item.itemTotal,
+      });
+
+      orderItems.add({
+        'product_id': item.product.id,
+        'quantity': item.quantity,
+        'price': item.unitPrice,
+        if (optsText.isNotEmpty) 'note': optsText,
+      });
+
+      totalCart += item.itemTotal;
+      totalItemsCount += item.quantity;
+    }
+
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      final orderId = await ApiService.createOrder(
+        'Cash',
+        totalCart,
+        orderItems,
+      );
+
+      if (mounted) Navigator.pop(context);
+
+      if (orderId.startsWith('OFF-') && mounted) {
+        AppToast.show(
+          context,
+          _t(
+            'បានបង្កើតការកុម្ម៉ង់ក្នុងរបៀប Offline (គ្មានសេវាអ៊ីនធឺណិត)',
+            'Order created in Offline mode (No internet connection)',
+          ),
+          type: ToastType.warning,
+        );
+      }
+
+      final now = DateTime.now();
+      final year = now.year;
+      final month = now.month.toString().padLeft(2, '0');
+      final day = now.day.toString().padLeft(2, '0');
+      final hour24 = now.hour.toString().padLeft(2, '0');
+      final minute = now.minute.toString().padLeft(2, '0');
+      final timeStr = '$year-$month-$day $hour24:$minute';
+
+      setState(() {
+        ordersList.insert(
+          0,
+          OrderItemModel(
+            id: orderId.length >= 4 ? orderId.substring(0, 4) : orderId,
+            title:
+                'Order #${orderId.length >= 4 ? orderId.substring(0, 4) : orderId} • ${cartSummary.join(", ")}',
+            subtitle: '$timeStr • Cash • $totalItemsCount Items',
+            amount: '+\$${totalCart.toStringAsFixed(2)}',
+            status: 'Pending',
+            icon: Icons.hourglass_top_rounded,
+            leadingBgColor: const Color(0xFFFEF3C7),
+            leadingIconColor: AppColors.warning,
+            isPositive: true,
+            rawItems: List.from(invoiceItems),
+          ),
+        );
+
+        _posCartItems.clear();
+      });
+
+      if (mounted) {
+        AppToast.show(
+          context,
+          _t('ការទូទាត់ជោគជ័យ!', 'Payment completed successfully!'),
+          type: ToastType.success,
+        );
+        _showPrintInvoiceDialog(
+          orderId: orderId.length >= 4 ? orderId.substring(0, 4) : orderId,
+          items: invoiceItems,
+          totalAmount: totalCart,
+        );
+      }
+
+      _loadData(silent: true);
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+
+      if (mounted) {
+        AppToast.show(
+          context,
+          'Checkout failed: ${e.toString().replaceAll("Exception: ", "")}',
+          type: ToastType.error,
+        );
+      }
+    }
+  }
+
+  // Cart Preview & Quantity Adjustment Bottom Sheet
+  void _showCartPreviewSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            double totalCart = 0;
+            int totalItemsCount = 0;
+            for (final item in _posCartItems) {
+              totalCart += item.itemTotal;
+              totalItemsCount += item.quantity;
+            }
+
+            if (_posCartItems.isEmpty) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (Navigator.canPop(context)) Navigator.pop(context);
+              });
+            }
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75,
+              decoration: BoxDecoration(
+                color: _isDarkMode
+                    ? const Color(0xFF1E293B)
+                    : AppColors.surface,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24.0),
+                ),
+              ),
+              padding: const EdgeInsets.fromLTRB(20.0, 16.0, 20.0, 20.0),
+              child: Column(
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: _isDarkMode
+                            ? const Color(0xFF334155)
+                            : AppColors.borderLight,
+                        borderRadius: BorderRadius.circular(2.0),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14.0),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.shopping_bag_rounded,
+                            color: _isDarkMode
+                                ? const Color(0xFF5CC8FF)
+                                : AppColors.primary,
+                            size: 22,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            _t(
+                              'ទំនិញក្នុងកន្ត្រក ($totalItemsCount)',
+                              'Cart Items ($totalItemsCount)',
+                            ),
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: _isDarkMode
+                                  ? Colors.white
+                                  : AppColors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          this.setState(() {
+                            _posCartItems.clear();
+                          });
+                          Navigator.pop(context);
+                        },
+                        child: Text(
+                          _t('លុបទាំងអស់', 'Clear All'),
+                          style: const TextStyle(
+                            color: AppColors.error,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 8.0),
+
+                  Expanded(
+                    child: ListView.separated(
+                      itemCount: _posCartItems.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final item = _posCartItems[index];
+                        final opts = item.optionsText;
+
+                        return Container(
+                          padding: const EdgeInsets.all(12.0),
+                          decoration: BoxDecoration(
+                            color: _isDarkMode
+                                ? const Color(0xFF0F172A)
+                                : AppColors.background,
+                            borderRadius: BorderRadius.circular(14.0),
+                            border: Border.all(
+                              color: _isDarkMode
+                                  ? const Color(0xFF334155)
+                                  : AppColors.borderLight,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: _isDarkMode
+                                      ? const Color(0xFF1E293B)
+                                      : AppColors.primaryLight,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(
+                                  item.product.icon,
+                                  color: _isDarkMode
+                                      ? const Color(0xFF5CC8FF)
+                                      : AppColors.primary,
+                                  size: 22,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.product.name,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: _isDarkMode
+                                            ? Colors.white
+                                            : AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    if (opts.isNotEmpty)
+                                      Text(
+                                        opts.join(' • '),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: _isDarkMode
+                                              ? const Color(0xFF94A3B8)
+                                              : AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    Text(
+                                      '\$${item.unitPrice.toStringAsFixed(2)} x ${item.quantity} = \$${item.itemTotal.toStringAsFixed(2)}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: _isDarkMode
+                                            ? const Color(0xFF5CC8FF)
+                                            : AppColors.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              Row(
+                                children: [
+                                  GestureDetector(
+                                    onTap: () {
+                                      this.setState(() {
+                                        if (item.quantity > 1) {
+                                          item.quantity -= 1;
+                                        } else {
+                                          _posCartItems.removeAt(index);
+                                        }
+                                      });
+                                      setSheetState(() {});
+                                    },
+                                    child: Container(
+                                      width: 32,
+                                      height: 32,
+                                      decoration: BoxDecoration(
+                                        color: _isDarkMode
+                                            ? const Color(0xFF334155)
+                                            : AppColors.borderLight,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        item.quantity > 1
+                                            ? Icons.remove_rounded
+                                            : Icons.delete_outline_rounded,
+                                        size: 16,
+                                        color: item.quantity > 1
+                                            ? (_isDarkMode
+                                                  ? Colors.white
+                                                  : AppColors.textPrimary)
+                                            : AppColors.error,
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                    ),
+                                    child: Text(
+                                      '${item.quantity}',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: _isDarkMode
+                                            ? Colors.white
+                                            : AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                  GestureDetector(
+                                    onTap: () {
+                                      this.setState(() {
+                                        item.quantity += 1;
+                                      });
+                                      setSheetState(() {});
+                                    },
+                                    child: Container(
+                                      width: 32,
+                                      height: 32,
+                                      decoration: const BoxDecoration(
+                                        color: AppColors.primary,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.add_rounded,
+                                        size: 18,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 12.0),
+                  const Divider(),
+                  const SizedBox(height: 8.0),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _t('សរុប:', 'Total:'),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: _isDarkMode
+                              ? const Color(0xFF94A3B8)
+                              : AppColors.textSecondary,
+                        ),
+                      ),
+                      Text(
+                        '\$${totalCart.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: _isDarkMode
+                              ? const Color(0xFF5CC8FF)
+                              : AppColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12.0),
+                  PrimaryButton(
+                    text: _t(
+                      'កុម្ម៉ង់ និង បោះពុម្ពវិក្កយបត្រ',
+                      'Order & Print Invoice',
+                    ),
+                    icon: const Icon(
+                      Icons.receipt_long_rounded,
+                      size: 20,
+                      color: Colors.white,
+                    ),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _processCheckoutOrder();
+                    },
+                  ),
+                ],
               ),
             );
           },
@@ -2518,33 +2932,18 @@ class _HomeScreenState extends State<HomeScreen> {
   // TAB 2: POS Tab (Product Terminal Checkout)
   Widget _buildPOSTab() {
     if (_isLoadingData) {
-      return POSSkeleton(headerSliver: _buildTopHeader());
+      return const PosSkeleton();
     }
 
     double totalCart = 0;
     int totalItemsCount = 0;
 
-    _posQuantities.forEach((itemName, qty) {
-      if (qty > 0) {
-        final matchingIndex = _products.indexWhere((p) => p.name == itemName);
-        if (matchingIndex != -1) {
-          final p = _products[matchingIndex];
-          final variant = selectedVariants[itemName];
-          final variantExtra = variant?.extraPrice ?? 0.0;
-          final addOns = selectedAddOns[itemName] ?? [];
-          final addOnsExtra = addOns.fold(
-            0.0,
-            (sum, item) => sum + item.extraPrice,
-          );
-          totalCart += qty * (p.price + variantExtra + addOnsExtra);
-          totalItemsCount += qty;
-        }
-      }
-    });
+    for (final item in _posCartItems) {
+      totalCart += item.itemTotal;
+      totalItemsCount += item.quantity;
+    }
 
-    final activeProducts = _products
-        .where((p) => p.isActive && p.stock > 0)
-        .toList();
+    final activeProducts = _products.where((p) => p.isActive).toList();
     var filteredProducts = _selectedPOSCategoryIndex == 0
         ? activeProducts
         : activeProducts
@@ -2642,23 +3041,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: Colors.grey,
                           ),
                         )
-                      : Container(
-                          margin: const EdgeInsets.all(6),
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: _isDarkMode
-                                ? const Color(0xFF334155)
-                                : const Color(0xFFF1F5F9),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.mic_none_rounded,
-                            size: 16,
-                            color: _isDarkMode
-                                ? const Color(0xFF94A3B8)
-                                : AppColors.textSecondary,
-                          ),
-                        ),
+                      : null,
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(vertical: 10.0),
                 ),
@@ -2666,721 +3049,604 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // 3. Fixed Horizontal Category Swiper Tabs
+          // 3. Fixed Horizontal Category Swiper Tabs (Bottom Nav Style - Pure Text Pills)
           if (_categories.isNotEmpty)
-            SizedBox(
-              height: 48,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14.0,
-                  vertical: 6.0,
-                ),
-                itemCount: _categories.length + 1,
-                itemBuilder: (context, index) {
-                  final isSelected = index == _selectedPOSCategoryIndex;
-                  final rawCategory = index == 0
-                      ? 'All'
-                      : _categories[index - 1];
-                  final text = index == 0
-                      ? _t('ទាំងអស់', 'All')
-                      : (rawCategory == 'Coffee'
-                            ? _t('កាហ្វេ', 'Coffee')
-                            : rawCategory == 'Bakery'
-                            ? _t('នំប៉័ង', 'Bakery')
-                            : rawCategory);
-
-                  // Category Card Background & Text Colors
-                  final Color pillBg = isSelected
-                      ? (_isDarkMode
-                            ? const Color(0xFF008099)
-                            : AppColors.primary)
-                      : (_isDarkMode ? const Color(0xFF1E293B) : Colors.white);
-
-                  final Color pillTextColor = isSelected
-                      ? Colors.white
-                      : (_isDarkMode
-                            ? const Color(0xFF94A3B8)
-                            : AppColors.textSecondary);
-
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedPOSCategoryIndex = index;
-                        });
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        curve: Curves.fastOutSlowIn,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20.0,
-                          vertical: 8.0,
-                        ),
-                        decoration: BoxDecoration(
-                          color: pillBg,
-                          borderRadius: BorderRadius.circular(22.0),
-                          border: Border.all(
-                            color: isSelected
-                                ? (_isDarkMode
-                                      ? const Color(0xFF5CC8FF)
-                                      : AppColors.primary)
-                                : (_isDarkMode
-                                      ? const Color(0xFF334155)
-                                      : AppColors.borderLight),
-                            width: 1.2,
-                          ),
-                        ),
-                        child: Center(
-                          child: AnimatedDefaultTextStyle(
-                            duration: const Duration(milliseconds: 200),
-                            curve: Curves.fastOutSlowIn,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: isSelected
-                                  ? FontWeight.bold
-                                  : FontWeight.w600,
-                              color: pillTextColor,
-                              fontFamily: 'Plus Jakarta Sans',
-                            ),
-                            child: Text(text),
-                          ),
-                        ),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14.0,
+                vertical: 6.0,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(30.0),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  child: Container(
+                    height: 48,
+                    padding: const EdgeInsets.all(4.0),
+                    decoration: BoxDecoration(
+                      color: _isDarkMode
+                          ? Colors.black.withOpacity(0.45)
+                          : Colors.white.withOpacity(0.75),
+                      borderRadius: BorderRadius.circular(30.0),
+                      border: Border.all(
+                        color: _isDarkMode
+                            ? Colors.white.withOpacity(0.12)
+                            : Colors.white.withOpacity(0.80),
+                        width: 1.2,
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(
+                            _isDarkMode ? 0.2 : 0.05,
+                          ),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
                     ),
-                  );
-                },
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _categories.length + 1,
+                      itemBuilder: (context, index) {
+                        final isSelected = index == _selectedPOSCategoryIndex;
+                        final rawCategory = index == 0
+                            ? 'All'
+                            : _categories[index - 1];
+                        final text = index == 0
+                            ? _t('ទាំងអស់', 'All')
+                            : (rawCategory == 'Coffee'
+                                  ? _t('កាហ្វេ', 'Coffee')
+                                  : rawCategory == 'Bakery'
+                                  ? _t('នំប៉័ង', 'Bakery')
+                                  : rawCategory);
+
+                        const Color activePillColor = Color(
+                          0xFF2563EB,
+                        ); // Active Blue like bottom nav
+                        final Color inactiveTextColor = _isDarkMode
+                            ? const Color(0xFF94A3B8)
+                            : const Color(0xFF64748B);
+
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 2.0),
+                          child: GestureDetector(
+                            onTap: () {
+                              if (_selectedPOSCategoryIndex != index) {
+                                setState(() {
+                                  _previousPOSCategoryIndex =
+                                      _selectedPOSCategoryIndex;
+                                  _selectedPOSCategoryIndex = index;
+                                });
+                              }
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeInOut,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18.0,
+                                vertical: 8.0,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? activePillColor
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(24.0),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  text,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.w600,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : inactiveTextColor,
+                                    fontFamily: 'Plus Jakarta Sans',
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
               ),
             ),
 
-          // 4. Scrollable Product Cards Grid Area
+          // 4. Scrollable Product Cards Grid Area with Animated Horizontal Slide Transition
           Expanded(
             child: Stack(
               children: [
-                CustomScrollView(
-                  physics: const BouncingScrollPhysics(
-                    parent: AlwaysScrollableScrollPhysics(),
-                  ),
-                  slivers: [
-                    if (_products.isEmpty)
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Center(
-                          child: Text(
-                            _t(
-                              'គ្មានផលិតផលក្នុងបញ្ជីទេ។\nសូមបន្ថែមផលិតផលក្នុងទំព័រគ្រប់គ្រង។',
-                              'No products in catalog.\nAdd products in Settings to start.',
-                            ),
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 15,
-                              color: _isDarkMode
-                                  ? const Color(0xFF94A3B8)
-                                  : AppColors.textSecondary,
-                              height: 1.4,
-                            ),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 280),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder:
+                      (Widget child, Animation<double> animation) {
+                        final bool isSlideLeft =
+                            _selectedPOSCategoryIndex >=
+                            _previousPOSCategoryIndex;
+                        final Offset inBegin = Offset(
+                          isSlideLeft ? 0.2 : -0.2,
+                          0.0,
+                        );
+
+                        final Animation<Offset> slideAnim = Tween<Offset>(
+                          begin: inBegin,
+                          end: Offset.zero,
+                        ).animate(animation);
+
+                        return SlideTransition(
+                          position: slideAnim,
+                          child: FadeTransition(
+                            opacity: animation,
+                            child: child,
                           ),
-                        ),
-                      )
-                    else if (filteredProducts.isEmpty)
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: Center(
-                          child: Text(
-                            _t(
-                              'គ្មានផលិតផលក្នុងប្រភេទទំនិញនេះទេ។',
-                              'No products in this category.',
-                            ),
-                            style: TextStyle(
-                              fontSize: 15,
-                              color: _isDarkMode
-                                  ? const Color(0xFF94A3B8)
-                                  : AppColors.textSecondary,
-                            ),
-                          ),
-                        ),
-                      )
-                    else
-                      SliverPadding(
-                        padding: const EdgeInsets.all(12.0),
-                        sliver: SliverGrid(
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 2,
-                                mainAxisSpacing: 12.0,
-                                crossAxisSpacing: 12.0,
-                                mainAxisExtent: 220.0,
-                              ),
-                          delegate: SliverChildBuilderDelegate((
-                            context,
-                            index,
-                          ) {
-                            final product = filteredProducts[index];
-                            final qty = _posQuantities[product.name] ?? 0;
-                            final selectedVariant =
-                                selectedVariants[product.name] ??
-                                (product.variants.isNotEmpty
-                                    ? product.variants.first
-                                    : null);
-                            final selectedSugar =
-                                selectedSugarLevels[product.name];
-                            final currentAddOns =
-                                selectedAddOns[product.name] ?? [];
-
-                            final double variantExtra =
-                                selectedVariant?.extraPrice ?? 0.0;
-                            final double addOnsExtra = currentAddOns.fold(
-                              0.0,
-                              (sum, a) => sum + a.extraPrice,
-                            );
-                            final double itemFinalPrice =
-                                product.price + variantExtra + addOnsExtra;
-
-                            final List<String> optionTexts = [];
-                            if (selectedVariant != null) {
-                              optionTexts.add(selectedVariant.name);
-                            }
-                            if (selectedSugar != null) {
-                              optionTexts.add('Sugar $selectedSugar');
-                            }
-                            if (currentAddOns.isNotEmpty) {
-                              optionTexts.add(
-                                currentAddOns.map((a) => a.name).join(', '),
-                              );
-                            }
-
-                            final Color itemIconBg = _isDarkMode
-                                ? const Color(0xFF0F2B66)
-                                : AppColors.primaryLight;
-                            final Color itemIconColor = _isDarkMode
-                                ? const Color(0xFF5CC8FF)
-                                : AppColors.primary;
-                            final Color itemTitleColor = _isDarkMode
-                                ? Colors.white
-                                : AppColors.textPrimary;
-                            final Color cardBg = _isDarkMode
-                                ? const Color(0xFF1E293B)
-                                : AppColors.surface;
-                            final Color cardBorder = _isDarkMode
-                                ? const Color(0xFF334155)
-                                : AppColors.borderLight;
-                            final Color customizeText = _isDarkMode
-                                ? const Color(0xFF5CC8FF)
-                                : AppColors.primary;
-
-                            final bool hasImage =
-                                product.imageUrl != null &&
-                                product.imageUrl!.trim().isNotEmpty;
-
-                            return GestureDetector(
-                              onTap: () => _showVariantSelectionSheet(product),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                decoration: BoxDecoration(
-                                  color: cardBg,
-                                  borderRadius: BorderRadius.circular(20.0),
-                                  border: Border.all(
-                                    color: qty > 0
-                                        ? AppColors.primary
-                                        : cardBorder,
-                                    width: qty > 0 ? 2.0 : 1.0,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(
-                                        _isDarkMode ? 0.25 : 0.04,
-                                      ),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
+                        );
+                      },
+                  child: KeyedSubtree(
+                    key: ValueKey(
+                      'pos_cat_${_selectedPOSCategoryIndex}_$_posSearchQuery',
+                    ),
+                    child: CustomScrollView(
+                      physics: const BouncingScrollPhysics(
+                        parent: AlwaysScrollableScrollPhysics(),
+                      ),
+                      slivers: [
+                        if (_products.isEmpty)
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: Center(
+                              child: AppEmptyState(
+                                icon: Icons.inventory_2_outlined,
+                                title: _t(
+                                  'គ្មានផលិតផលក្នុងបញ្ជីទេ',
+                                  'No Products Found',
                                 ),
-                                clipBehavior: Clip.antiAlias,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // Top Image Container with Badges
-                                    Stack(
-                                      children: [
-                                        SizedBox(
-                                          height: 105.0,
-                                          width: double.infinity,
-                                          child: hasImage
-                                              ? Image.network(
-                                                  product.imageUrl!,
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder:
-                                                      (
-                                                        ctx,
-                                                        err,
-                                                        stack,
-                                                      ) => Container(
-                                                        color: itemIconBg,
+                                description: _t(
+                                  'គ្មានផលិតផលក្នុងបញ្ជីទេ។ សូមបន្ថែមផលិតផលក្នុងទំព័រគ្រប់គ្រង។',
+                                  'No products in catalog. Tap products management to add items.',
+                                ),
+                              ),
+                            ),
+                          )
+                        else if (filteredProducts.isEmpty)
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: Center(
+                              child: AppEmptyState(
+                                icon: Icons.search_off_rounded,
+                                title: _t('រកមិនឃើញទំនិញ', 'No Results Found'),
+                                description: _t(
+                                  'គ្មានផលិតផលក្នុងប្រភេទទំនិញ ឬការស្វែងរកនេះទេ។',
+                                  'No products match this category or search term.',
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          SliverPadding(
+                            padding: const EdgeInsets.all(12.0),
+                            sliver: SliverGrid(
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 3,
+                                    mainAxisSpacing: 10.0,
+                                    crossAxisSpacing: 10.0,
+                                    mainAxisExtent: 148.0,
+                                  ),
+                              delegate: SliverChildBuilderDelegate((
+                                context,
+                                index,
+                              ) {
+                                final product = filteredProducts[index];
+                                final qty = _getProductTotalQty(product.name);
+                                final selectedVariant =
+                                    selectedVariants[product.name] ??
+                                    (product.variants.isNotEmpty
+                                        ? product.variants.first
+                                        : null);
+                                final currentAddOns =
+                                    selectedAddOns[product.name] ?? [];
+
+                                final double variantExtra =
+                                    selectedVariant?.extraPrice ?? 0.0;
+                                final double addOnsExtra = currentAddOns.fold(
+                                  0.0,
+                                  (sum, a) => sum + a.extraPrice,
+                                );
+                                final double itemFinalPrice =
+                                    product.price + variantExtra + addOnsExtra;
+
+                                final Color itemIconBg = _isDarkMode
+                                    ? const Color(0xFF0F2B66)
+                                    : AppColors.primaryLight;
+                                final Color itemIconColor = _isDarkMode
+                                    ? const Color(0xFF5CC8FF)
+                                    : AppColors.primary;
+                                final Color itemTitleColor = _isDarkMode
+                                    ? Colors.white
+                                    : AppColors.textPrimary;
+                                final Color cardBg = _isDarkMode
+                                    ? const Color(0xFF1E293B)
+                                    : AppColors.surface;
+                                final Color cardBorder = _isDarkMode
+                                    ? const Color(0xFF334155)
+                                    : AppColors.borderLight;
+
+                                final bool hasImage =
+                                    product.imageUrl != null &&
+                                    product.imageUrl!.trim().isNotEmpty;
+
+                                return ScaleFadeIn(
+                                  delay: Duration(
+                                    milliseconds: (index % 6) * 40,
+                                  ),
+                                  child: PressScale(
+                                    onTap: () {
+                                      if (product.stock == 0) {
+                                        AppToast.show(
+                                          context,
+                                          _t(
+                                            'ផលិតផលនេះអស់ពីស្តុកហើយ',
+                                            'This product is out of stock',
+                                          ),
+                                          type: ToastType.warning,
+                                        );
+                                        return;
+                                      }
+
+                                      if (product.sugarLevels.isNotEmpty ||
+                                          product.availableAddOns.isNotEmpty) {
+                                        _showVariantSelectionSheet(product);
+                                      } else {
+                                        setState(
+                                          () => _addOrUpdateCartItem(product),
+                                        );
+                                      }
+                                    },
+                                    child: AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 200,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: cardBg,
+                                        borderRadius: BorderRadius.circular(
+                                          12.0,
+                                        ),
+                                        border: Border.all(
+                                          color: qty > 0
+                                              ? AppColors.primary
+                                              : cardBorder,
+                                          width: qty > 0 ? 1.8 : 1.0,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(
+                                              _isDarkMode ? 0.25 : 0.04,
+                                            ),
+                                            blurRadius: 10,
+                                            offset: const Offset(0, 4),
+                                          ),
+                                        ],
+                                      ),
+                                      clipBehavior: Clip.antiAlias,
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          // Full-Width Fit Image Section with Badges
+                                          Expanded(
+                                            child: Stack(
+                                              fit: StackFit.expand,
+                                              children: [
+                                                hasImage
+                                                    ? Image.network(
+                                                        product.imageUrl!,
+                                                        fit: BoxFit.cover,
+                                                        errorBuilder:
+                                                            (
+                                                              ctx,
+                                                              err,
+                                                              stack,
+                                                            ) => Container(
+                                                              color: itemIconBg,
+                                                              child: Center(
+                                                                child: Icon(
+                                                                  product.icon,
+                                                                  color:
+                                                                      itemIconColor,
+                                                                  size: 38,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                      )
+                                                    : Container(
+                                                        decoration: BoxDecoration(
+                                                          gradient: LinearGradient(
+                                                            colors: _isDarkMode
+                                                                ? [
+                                                                    const Color(
+                                                                      0xFF1E293B,
+                                                                    ),
+                                                                    const Color(
+                                                                      0xFF0F2B66,
+                                                                    ),
+                                                                  ]
+                                                                : [
+                                                                    const Color(
+                                                                      0xFFE2E8F0,
+                                                                    ),
+                                                                    const Color(
+                                                                      0xFFEEF5FB,
+                                                                    ),
+                                                                  ],
+                                                            begin: Alignment
+                                                                .topLeft,
+                                                            end: Alignment
+                                                                .bottomRight,
+                                                          ),
+                                                        ),
                                                         child: Center(
                                                           child: Icon(
                                                             product.icon,
                                                             color:
                                                                 itemIconColor,
-                                                            size: 36,
+                                                            size: 38,
                                                           ),
                                                         ),
                                                       ),
-                                                )
-                                              : Container(
-                                                  decoration: BoxDecoration(
-                                                    gradient: LinearGradient(
-                                                      colors: _isDarkMode
-                                                          ? [
-                                                              const Color(
-                                                                0xFF1E293B,
-                                                              ),
-                                                              const Color(
-                                                                0xFF0F2B66,
-                                                              ),
-                                                            ]
-                                                          : [
-                                                              const Color(
-                                                                0xFFE2E8F0,
-                                                              ),
-                                                              const Color(
-                                                                0xFFEEF5FB,
-                                                              ),
-                                                            ],
-                                                      begin: Alignment.topLeft,
-                                                      end:
-                                                          Alignment.bottomRight,
-                                                    ),
-                                                  ),
-                                                  child: Center(
-                                                    child: Icon(
-                                                      product.icon,
-                                                      color: itemIconColor,
-                                                      size: 36,
-                                                    ),
-                                                  ),
-                                                ),
-                                        ),
 
-                                        // Options/Variants Pill (Top-Right)
-                                        if (product.variants.isNotEmpty ||
-                                            product.sugarLevels.isNotEmpty)
-                                          Positioned(
-                                            top: 8,
-                                            right: 8,
-                                            child: GestureDetector(
-                                              onTap: () =>
-                                                  _showVariantSelectionSheet(
-                                                    product,
+                                                // Price Badge on Image Overlay (Top-Right)
+                                                Positioned(
+                                                  top: 6,
+                                                  right: 6,
+                                                  child: Container(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 6.0,
+                                                          vertical: 2.5,
+                                                        ),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.black
+                                                          .withOpacity(0.65),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            8.0,
+                                                          ),
+                                                      border: Border.all(
+                                                        color: Colors.white24,
+                                                        width: 1,
+                                                      ),
+                                                    ),
+                                                    child: Text(
+                                                      '\$${itemFinalPrice.toStringAsFixed(2)}',
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 11.0,
+                                                        fontWeight:
+                                                            FontWeight.w800,
+                                                        fontFamily:
+                                                            'Plus Jakarta Sans',
+                                                      ),
+                                                    ),
                                                   ),
-                                              child: Container(
-                                                padding: const EdgeInsets.all(
-                                                  6.0,
                                                 ),
-                                                decoration: BoxDecoration(
-                                                  color: cardBg.withOpacity(
-                                                    0.85,
+
+                                                // Stock Badge (Top-Left)
+                                                if (product.stock == 0)
+                                                  Positioned(
+                                                    top: 8,
+                                                    left: 8,
+                                                    child: Container(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 8,
+                                                            vertical: 3,
+                                                          ),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.redAccent,
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              12,
+                                                            ),
+                                                      ),
+                                                      child: Text(
+                                                        _t(
+                                                          'អស់ស្តុក',
+                                                          'Out of stock',
+                                                        ),
+                                                        style: const TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 10,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                    ),
                                                   ),
-                                                  shape: BoxShape.circle,
-                                                  border: Border.all(
-                                                    color: cardBorder,
-                                                    width: 1,
+
+                                                // Cart Count Badge (Top-Left if in cart)
+                                                if (qty > 0 &&
+                                                    product.stock > 0)
+                                                  Positioned(
+                                                    top: 8,
+                                                    left: 8,
+                                                    child: Container(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 8,
+                                                            vertical: 3,
+                                                          ),
+                                                      decoration: BoxDecoration(
+                                                        color:
+                                                            AppColors.primary,
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              12,
+                                                            ),
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: AppColors
+                                                                .primary
+                                                                .withOpacity(
+                                                                  0.4,
+                                                                ),
+                                                            blurRadius: 6,
+                                                            offset:
+                                                                const Offset(
+                                                                  0,
+                                                                  2,
+                                                                ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      child: Text(
+                                                        '$qty',
+                                                        style: const TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 11,
+                                                          fontWeight:
+                                                              FontWeight.w800,
+                                                        ),
+                                                      ),
+                                                    ),
                                                   ),
-                                                ),
-                                                child: Icon(
-                                                  Icons.tune_rounded,
-                                                  size: 14,
-                                                  color: customizeText,
-                                                ),
+                                              ],
+                                            ),
+                                          ),
+
+                                          // Details Section (Title Only)
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10.0,
+                                              vertical: 9.0,
+                                            ),
+                                            child: Text(
+                                              product.name,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 13.0,
+                                                fontWeight: FontWeight.bold,
+                                                color: itemTitleColor,
                                               ),
                                             ),
                                           ),
-                                      ],
-                                    ),
-
-                                    // Details & Controls Section
-                                    Expanded(
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10.0,
-                                          vertical: 8.0,
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  product.name,
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: TextStyle(
-                                                    fontSize: 13.0,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: itemTitleColor,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 2.0),
-                                                Text(
-                                                  '\$${itemFinalPrice.toStringAsFixed(2)}',
-                                                  style: TextStyle(
-                                                    fontSize: 13.0,
-                                                    fontWeight: FontWeight.w800,
-                                                    color: _isDarkMode
-                                                        ? const Color(
-                                                            0xFF5CC8FF,
-                                                          )
-                                                        : AppColors.primary,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-
-                                            // Quantity Controls (- qty +)
-                                            Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .spaceBetween,
-                                              children: [
-                                                AppIconButton(
-                                                  icon: Icons.remove,
-                                                  size: 26,
-                                                  onPressed: qty > 0
-                                                      ? () => setState(
-                                                          () =>
-                                                              _posQuantities[product
-                                                                      .name] =
-                                                                  qty - 1,
-                                                        )
-                                                      : null,
-                                                ),
-                                                Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 8,
-                                                        vertical: 2,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    color: qty > 0
-                                                        ? AppColors.primary
-                                                              .withOpacity(0.12)
-                                                        : Colors.transparent,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          8,
-                                                        ),
-                                                  ),
-                                                  child: Text(
-                                                    '$qty',
-                                                    style: TextStyle(
-                                                      fontSize: 13.5,
-                                                      fontWeight:
-                                                          FontWeight.w800,
-                                                      color: qty > 0
-                                                          ? AppColors.primary
-                                                          : itemTitleColor,
-                                                    ),
-                                                  ),
-                                                ),
-                                                AppIconButton(
-                                                  icon: Icons.add,
-                                                  size: 26,
-                                                  onPressed: product.stock > 0
-                                                      ? () {
-                                                          if (qty <
-                                                              product.stock) {
-                                                            setState(
-                                                              () =>
-                                                                  _posQuantities[product
-                                                                          .name] =
-                                                                      qty + 1,
-                                                            );
-                                                          } else {
-                                                            AppToast.show(
-                                                              context,
-                                                              _t(
-                                                                'មិនអាចលើសចំនួនស្តុក ${product.stock}',
-                                                                'Cannot exceed stock of ${product.stock}',
-                                                              ),
-                                                              type: ToastType
-                                                                  .warning,
-                                                              duration:
-                                                                  const Duration(
-                                                                    seconds: 1,
-                                                                  ),
-                                                            );
-                                                          }
-                                                        }
-                                                      : null,
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
+                                        ],
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }, childCount: filteredProducts.length),
+                                  ),
+                                );
+                              }, childCount: filteredProducts.length),
+                            ),
+                          ),
+                        const SliverPadding(
+                          padding: EdgeInsets.only(bottom: 140.0),
                         ),
-                      ),
-                    const SliverPadding(
-                      padding: EdgeInsets.only(bottom: 140.0),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
 
                 // Cart Summary & Single Order & Print Invoice Action Button (Only show when at least 1 item is selected)
                 if (totalItemsCount > 0)
                   Align(
                     alignment: Alignment.bottomCenter,
-                    child: Container(
-                      padding: EdgeInsets.fromLTRB(
-                        20.0,
-                        16.0,
-                        20.0,
-                        MediaQuery.of(context).padding.bottom + 90.0,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _isDarkMode
-                            ? const Color(0xFF1E293B)
-                            : AppColors.surface,
-                        border: Border(
-                          top: BorderSide(
-                            color: _isDarkMode
-                                ? const Color(0xFF334155)
-                                : AppColors.borderLight,
-                            width: 1.0,
+                    child: BouncyBadge(
+                      value: totalItemsCount,
+                      child: Container(
+                        padding: EdgeInsets.fromLTRB(
+                          20.0,
+                          16.0,
+                          20.0,
+                          MediaQuery.of(context).padding.bottom + 90.0,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _isDarkMode
+                              ? const Color(0xFF1E293B)
+                              : AppColors.surface,
+                          border: Border(
+                            top: BorderSide(
+                              color: _isDarkMode
+                                  ? const Color(0xFF334155)
+                                  : AppColors.borderLight,
+                              width: 1.0,
+                            ),
+                          ),
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(24.0),
                           ),
                         ),
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(24.0),
-                        ),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                _t(
-                                  'សរុបការកុម្ម៉ង់ ($totalItemsCount មុខ):',
-                                  'Order Total ($totalItemsCount items):',
-                                ),
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: _isDarkMode
-                                      ? const Color(0xFF94A3B8)
-                                      : AppColors.textSecondary,
-                                ),
-                              ),
-                              Text(
-                                '\$${totalCart.toStringAsFixed(2)}',
-                                style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: _isDarkMode
-                                      ? const Color(0xFF5CC8FF)
-                                      : AppColors.primary,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16.0),
-                          PrimaryButton(
-                            text: _t(
-                              'កុម្ម៉ង់ និង បោះពុម្ពវិក្កយបត្រ',
-                              'Order & Print Invoice',
-                            ),
-                            icon: const Icon(
-                              Icons.receipt_long_rounded,
-                              size: 20,
-                              color: Colors.white,
-                            ),
-                            onPressed: totalCart > 0
-                                ? () async {
-                                    final List<String> cartSummary = [];
-                                    final List<Map<String, dynamic>>
-                                    invoiceItems = [];
-                                    final List<Map<String, dynamic>>
-                                    orderItems = [];
-
-                                    _posQuantities.forEach((itemName, qty) {
-                                      if (qty > 0) {
-                                        final matchingIndex = _products
-                                            .indexWhere(
-                                              (p) => p.name == itemName,
-                                            );
-                                        if (matchingIndex == -1) return;
-                                        final p = _products[matchingIndex];
-                                        final v = selectedVariants[itemName];
-                                        final sugar =
-                                            selectedSugarLevels[itemName];
-                                        final addOns =
-                                            selectedAddOns[itemName] ?? [];
-
-                                        final vExtra = v?.extraPrice ?? 0.0;
-                                        final addOnsExtra = addOns.fold(
-                                          0.0,
-                                          (sum, a) => sum + a.extraPrice,
-                                        );
-                                        final unitPrice =
-                                            p.price + vExtra + addOnsExtra;
-
-                                        final List<String> opts = [];
-                                        if (v != null) opts.add(v.name);
-                                        if (sugar != null)
-                                          opts.add('$sugar Sugar');
-                                        if (addOns.isNotEmpty)
-                                          opts.add(
-                                            addOns
-                                                .map((a) => a.name)
-                                                .join(', '),
-                                          );
-
-                                        cartSummary.add(itemName);
-                                        invoiceItems.add({
-                                          'name': itemName,
-                                          'variant': opts.isNotEmpty
-                                              ? opts.join(', ')
-                                              : null,
-                                          'qty': qty,
-                                          'unitPrice': unitPrice,
-                                          'itemTotal': qty * unitPrice,
-                                        });
-
-                                        orderItems.add({
-                                          'product_id': p.id,
-                                          'quantity': qty,
-                                          'price': unitPrice,
-                                          if (opts.isNotEmpty)
-                                            'note': opts.join(', '),
-                                        });
-                                      }
-                                    });
-
-                                    try {
-                                      // Show loading indicator
-                                      showDialog(
-                                        context: context,
-                                        barrierDismissible: false,
-                                        builder: (context) => const Center(
-                                          child: CircularProgressIndicator(),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            GestureDetector(
+                              onTap: _showCartPreviewSheet,
+                              behavior: HitTestBehavior.opaque,
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        _t(
+                                          'សរុបការកុម្ម៉ង់ ($totalItemsCount មុខ):',
+                                          'Order Total ($totalItemsCount items):',
                                         ),
-                                      );
-
-                                      final orderId =
-                                          await ApiService.createOrder(
-                                            'Cash',
-                                            totalCart,
-                                            orderItems,
-                                          );
-
-                                      // Close loading indicator
-                                      if (mounted) Navigator.pop(context);
-
-                                      if (orderId.startsWith('OFF-') &&
-                                          mounted) {
-                                        AppToast.show(
-                                          context,
-                                          _t(
-                                            'បានបង្កើតការកុម្ម៉ង់ក្នុងរបៀប Offline (គ្មានសេវាអ៊ីនធឺណិត)',
-                                            'Order created in Offline mode (No internet connection)',
-                                          ),
-                                          type: ToastType.warning,
-                                        );
-                                      }
-
-                                      final now = DateTime.now();
-                                      final year = now.year;
-                                      final month = now.month
-                                          .toString()
-                                          .padLeft(2, '0');
-                                      final day = now.day.toString().padLeft(
-                                        2,
-                                        '0',
-                                      );
-                                      final hour24 = now.hour
-                                          .toString()
-                                          .padLeft(2, '0');
-                                      final minute = now.minute
-                                          .toString()
-                                          .padLeft(2, '0');
-                                      final timeStr =
-                                          '$year-$month-$day $hour24:$minute';
-
-                                      setState(() {
-                                        // Insert into local ordersList
-                                        ordersList.insert(
-                                          0,
-                                          OrderItemModel(
-                                            id: orderId.length >= 4
-                                                ? orderId.substring(0, 4)
-                                                : orderId,
-                                            title:
-                                                'Order #${orderId.length >= 4 ? orderId.substring(0, 4) : orderId} • ${cartSummary.join(", ")}',
-                                            subtitle:
-                                                '$timeStr • Cash • $totalItemsCount Items',
-                                            amount:
-                                                '+\$${totalCart.toStringAsFixed(2)}',
-                                            status: 'Pending',
-                                            icon: Icons.hourglass_top_rounded,
-                                            leadingBgColor: const Color(
-                                              0xFFFEF3C7,
-                                            ),
-                                            leadingIconColor: AppColors.warning,
-                                            isPositive: true,
-                                            rawItems: List.from(invoiceItems),
-                                          ),
-                                        );
-
-                                        // Reset cart quantities
-                                        _posQuantities.updateAll(
-                                          (key, val) => 0,
-                                        );
-                                        selectedVariants.clear();
-                                        selectedSugarLevels.clear();
-                                        selectedAddOns.clear();
-                                      });
-
-                                      if (mounted) {
-                                        _showPrintInvoiceDialog(
-                                          orderId: orderId.length >= 4
-                                              ? orderId.substring(0, 4)
-                                              : orderId,
-                                          items: invoiceItems,
-                                          totalAmount: totalCart,
-                                        );
-                                      }
-
-                                      // Reload data in background to reflect stock update
-                                      _loadData(silent: true);
-                                    } catch (e) {
-                                      // Close loading indicator if open
-                                      if (mounted) Navigator.pop(context);
-
-                                      if (mounted) {
-                                        AppToast.show(
-                                          context,
-                                          'Checkout failed: ${e.toString().replaceAll("Exception: ", "")}',
-                                          type: ToastType.error,
-                                        );
-                                      }
-                                    }
-                                  }
-                                : null,
-                          ),
-                        ],
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: _isDarkMode
+                                              ? const Color(0xFF94A3B8)
+                                              : AppColors.textSecondary,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Icon(
+                                        Icons.unfold_more_rounded,
+                                        size: 18,
+                                        color: _isDarkMode
+                                            ? const Color(0xFF5CC8FF)
+                                            : AppColors.primary,
+                                      ),
+                                    ],
+                                  ),
+                                  Text(
+                                    '\$${totalCart.toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                      color: _isDarkMode
+                                          ? const Color(0xFF5CC8FF)
+                                          : AppColors.primary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16.0),
+                            PrimaryButton(
+                              text: _t(
+                                'កុម្ម៉ង់ និង បោះពុម្ពវិក្កយបត្រ',
+                                'Order & Print Invoice',
+                              ),
+                              icon: const Icon(
+                                Icons.receipt_long_rounded,
+                                size: 20,
+                                color: Colors.white,
+                              ),
+                              onPressed: totalCart > 0
+                                  ? () => _processCheckoutOrder()
+                                  : null,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),

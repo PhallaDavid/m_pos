@@ -1,111 +1,114 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
 import 'skeleton_loader.dart';
 
-class POSSkeleton extends StatelessWidget {
-  final Widget? headerSliver;
-  const POSSkeleton({super.key, this.headerSliver});
+/// Full-grid animated Skeleton UI loader for the POS Product Grid tab.
+/// Displays shimmering search bar, category pills, and 2-column product card skeletons.
+class PosSkeleton extends StatelessWidget {
+  const PosSkeleton({super.key});
 
   @override
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
-    final Color cardBg = isDark ? const Color(0xFF1E293B) : Colors.white;
-    final Color borderCol = isDark
-        ? const Color(0xFF334155)
-        : AppColors.borderLight;
-
-    Widget? headerWidget = headerSliver;
-    if (headerWidget is SliverToBoxAdapter) {
-      headerWidget = headerWidget.child;
-    }
 
     return AppShimmer(
       child: Column(
         children: [
-          ?headerWidget,
-
           // 1. Search Bar Skeleton
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-            child: SkeletonBox(
-              width: double.infinity,
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 8.0,
+            ),
+            child: Container(
               height: 44,
-              borderRadius: 22,
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                borderRadius: BorderRadius.circular(22.0),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: const Row(
+                children: [
+                  SkeletonCircle(size: 18),
+                  SizedBox(width: 12.0),
+                  SkeletonText(width: 140, height: 12),
+                ],
+              ),
             ),
           ),
 
-          // 2. Horizontal Category Swiper Tabs Skeleton
-          SizedBox(
-            height: 48,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14.0,
-                vertical: 6.0,
-              ),
-              itemCount: 5,
-              physics: const NeverScrollableScrollPhysics(),
-              itemBuilder: (context, index) {
-                return const Padding(
-                  padding: EdgeInsets.only(right: 8.0),
-                  child: SkeletonBox(width: 76, height: 36, borderRadius: 22),
-                );
-              },
+          // 2. Category Swiper Skeleton Pills
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 6.0,
             ),
-          ),
-
-          // 3. 2-Column Product Grid Skeleton
-          Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.all(16.0),
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 12.0,
-                crossAxisSpacing: 12.0,
-                childAspectRatio: 0.72,
-              ),
-              itemCount: 6,
-              itemBuilder: (context, index) {
-                return Container(
-                  padding: const EdgeInsets.all(10.0),
-                  decoration: BoxDecoration(
-                    color: cardBg,
-                    borderRadius: BorderRadius.circular(16.0),
-                    border: Border.all(color: borderCol.withOpacity(0.5)),
+            child: Row(
+              children: List.generate(
+                4,
+                (index) => Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: SkeletonBox(
+                    width: index == 0 ? 60 : (index == 1 ? 80 : 70),
+                    height: 36,
+                    borderRadius: 18,
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Expanded(
-                        child: SkeletonBox(
-                          width: double.infinity,
-                          borderRadius: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 10.0),
-                      const SkeletonText(width: 90, height: 12),
-                      const SizedBox(height: 6.0),
-                      const SkeletonText(width: 60, height: 10),
-                      const SizedBox(height: 8.0),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const SkeletonText(width: 50, height: 14),
-                          Container(
-                            width: 28,
-                            height: 28,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8.0),
+
+          // 3. Product Cards Grid Skeleton (6 Cards, 2 Columns)
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: GridView.builder(
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 0.72,
+                  crossAxisSpacing: 12.0,
+                  mainAxisSpacing: 12.0,
+                ),
+                itemCount: 6,
+                itemBuilder: (context, index) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      borderRadius: BorderRadius.circular(20.0),
+                    ),
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Product Image Skeleton Box
+                        Expanded(
+                          child: Container(
                             decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.2),
-                              shape: BoxShape.circle,
+                              color: isDark
+                                  ? const Color(0xFF0F172A)
+                                  : const Color(0xFFE2E8F0),
+                              borderRadius: BorderRadius.circular(14.0),
                             ),
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
+                        ),
+                        const SizedBox(height: 10.0),
+                        // Product Name Line
+                        const SkeletonText(width: 100, height: 14),
+                        const SizedBox(height: 6.0),
+                        // Price Line & Add Button Placeholder
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            SkeletonText(width: 50, height: 14),
+                            SkeletonCircle(size: 28),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ],

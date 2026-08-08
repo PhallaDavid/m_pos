@@ -7,6 +7,8 @@ import '../widgets/primary_button.dart';
 import '../widgets/rounded_text_field.dart';
 import '../services/api_service.dart';
 import '../widgets/app_toast.dart';
+import '../widgets/app_empty_state.dart';
+import '../widgets/list_skeleton.dart';
 
 class ManageCategoriesScreen extends StatefulWidget {
   final List<String> categories;
@@ -25,6 +27,7 @@ class ManageCategoriesScreen extends StatefulWidget {
 class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
   List<String> _categoryList = [];
   List<Map<String, dynamic>> _fetchedCategories = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -33,19 +36,38 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
     _loadCategories();
   }
 
+  void _sortCategories() {
+    _fetchedCategories.sort((a, b) {
+      final bool aActive = a['is_active'] == null || a['is_active'] == true;
+      final bool bActive = b['is_active'] == null || b['is_active'] == true;
+      if (aActive != bActive) {
+        return aActive ? -1 : 1;
+      }
+      return 0;
+    });
+    _categoryList = _fetchedCategories
+        .map((c) => c['name']?.toString() ?? '')
+        .where((n) => n.isNotEmpty)
+        .toList();
+  }
+
   Future<void> _loadCategories() async {
     try {
       final cats = await ApiService.getCategories();
       if (mounted) {
         setState(() {
           _fetchedCategories = List<Map<String, dynamic>>.from(cats);
-          _categoryList = _fetchedCategories
-              .map((c) => c['name']?.toString() ?? '')
-              .where((n) => n.isNotEmpty)
-              .toList();
+          _sortCategories();
+          _isLoading = false;
         });
       }
-    } catch (_) {}
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   void _showAddCategoryBottomSheet() {
@@ -131,6 +153,8 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
                             widget.categories.add(name);
                           }
                         });
+                        await _loadCategories();
+                        if (!context.mounted) return;
                         Navigator.pop(context); // close sheet
                         AppToast.show(
                           context,
@@ -188,331 +212,350 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
         ),
         centerTitle: true,
       ),
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(
-          parent: AlwaysScrollableScrollPhysics(),
-        ),
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.all(20.0),
-            sliver: SliverToBoxAdapter(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Active Categories',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: textColor,
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: _showAddCategoryBottomSheet,
+      body: _isLoading
+          ? const ListSkeleton()
+          : CustomScrollView(
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.all(20.0),
+                  sliver: SliverToBoxAdapter(
                     child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Icon(
-                          Icons.add_rounded,
-                          color: isDark
-                              ? const Color(0xFF5CC8FF)
-                              : AppColors.primary,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 4.0),
                         Text(
-                          'Add Category',
+                          'Active Categories',
                           style: TextStyle(
-                            fontSize: 14,
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: isDark
-                                ? const Color(0xFF5CC8FF)
-                                : AppColors.primary,
+                            color: textColor,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: _showAddCategoryBottomSheet,
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.add_rounded,
+                                color: isDark
+                                    ? const Color(0xFF5CC8FF)
+                                    : AppColors.primary,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 4.0),
+                              Text(
+                                'Add Category',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark
+                                      ? const Color(0xFF5CC8FF)
+                                      : AppColors.primary,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-          if (_categoryList.isEmpty)
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 40.0),
-                  child: Text(
-                    'No categories defined.\nTap "Add Category" to create one.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: subTextColor,
-                      height: 1.4,
-                    ),
-                  ),
                 ),
-              ),
-            )
-          else
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20.0, 0.0, 20.0, 20.0),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  final category = _categoryList[index];
-                  final productCount = widget.products
-                      .where((p) => p.category == category)
-                      .length;
-
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12.0),
-                    child: AppCard(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: isDark
-                                      ? const Color(0xFF0F2B66)
-                                      : AppColors.primaryLight,
-                                  borderRadius: BorderRadius.circular(10.0),
-                                ),
-                                child: Icon(
-                                  Icons.category_rounded,
-                                  color: isDark
-                                      ? const Color(0xFF5CC8FF)
-                                      : AppColors.primary,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 14.0),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    category,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: textColor,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2.0),
-                                  Text(
-                                    '$productCount Products',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: subTextColor,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              Builder(
-                                builder: (context) {
-                                  final categoryName = _categoryList[index];
-                                  final matchIndex = _fetchedCategories
-                                      .indexWhere(
-                                        (c) => c['name'] == categoryName,
-                                      );
-                                  final bool isActive = matchIndex != -1
-                                      ? (_fetchedCategories[matchIndex]['is_active'] ==
-                                                null ||
-                                            _fetchedCategories[matchIndex]['is_active'] ==
-                                                true)
-                                      : true;
-
-                                  return GestureDetector(
-                                    onTap: () async {
-                                      final newActive = !isActive;
-                                      if (matchIndex != -1) {
-                                        setState(() {
-                                          _fetchedCategories[matchIndex]['is_active'] =
-                                              newActive;
-                                        });
-                                        final catId =
-                                            _fetchedCategories[matchIndex]['id']
-                                                ?.toString();
-                                        if (catId != null) {
-                                          try {
-                                            await ApiService.updateCategory(
-                                              catId,
-                                              categoryName,
-                                              isActive: newActive,
-                                            );
-                                            if (mounted) {
-                                              AppToast.show(
-                                                context,
-                                                '"$categoryName" is now ${newActive ? "Active" : "Inactive"}',
-                                                type: newActive
-                                                    ? ToastType.success
-                                                    : ToastType.warning,
-                                              );
-                                            }
-                                          } catch (_) {
-                                            if (mounted) {
-                                              setState(() {
-                                                _fetchedCategories[matchIndex]['is_active'] =
-                                                    !newActive;
-                                              });
-                                            }
-                                          }
-                                        }
-                                      }
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: isActive
-                                            ? AppColors.success.withOpacity(
-                                                0.12,
-                                              )
-                                            : Colors.grey.withOpacity(0.15),
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: isActive
-                                              ? AppColors.success.withOpacity(
-                                                  0.4,
-                                                )
-                                              : Colors.grey.withOpacity(0.4),
-                                        ),
-                                      ),
-                                      child: Text(
-                                        isActive ? 'Active' : 'Inactive',
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: isActive
-                                              ? AppColors.success
-                                              : Colors.grey,
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                              const SizedBox(width: 12.0),
-                              GestureDetector(
-                                onTap: () async {
-                                  if (_categoryList.length <= 1) {
-                                    AppToast.show(
-                                      context,
-                                      'At least one active category is required.',
-                                      type: ToastType.warning,
-                                    );
-                                    return;
-                                  }
-
-                                  final categoryName = _categoryList[index];
-                                  final matchIndex = _fetchedCategories
-                                      .indexWhere(
-                                        (c) => c['name'] == categoryName,
-                                      );
-                                  final categoryId = matchIndex != -1
-                                      ? _fetchedCategories[matchIndex]['id']
-                                            ?.toString()
-                                      : null;
-
-                                  if (categoryId != null &&
-                                      categoryId.isNotEmpty) {
-                                    try {
-                                      showDialog(
-                                        context: context,
-                                        barrierDismissible: false,
-                                        builder: (context) => const Center(
-                                          child: CircularProgressIndicator(),
-                                        ),
-                                      );
-                                      await ApiService.deleteCategory(
-                                        categoryId,
-                                      );
-                                      if (context.mounted) {
-                                        Navigator.pop(context); // close loader
-                                      }
-
-                                      if (mounted) {
-                                        setState(() {
-                                          _categoryList.removeAt(index);
-                                          if (matchIndex != -1 &&
-                                              matchIndex <
-                                                  _fetchedCategories.length) {
-                                            _fetchedCategories.removeAt(
-                                              matchIndex,
-                                            );
-                                          }
-                                          widget.categories.removeWhere(
-                                            (c) => c == categoryName,
-                                          );
-                                        });
-                                        AppToast.show(
-                                          context,
-                                          'Category "$categoryName" deleted successfully.',
-                                          type: ToastType.success,
-                                        );
-                                      }
-                                    } catch (e) {
-                                      if (context.mounted) {
-                                        Navigator.pop(context); // close loader
-                                      }
-                                      if (mounted) {
-                                        String errorMsg = e
-                                            .toString()
-                                            .replaceAll("Exception: ", "");
-                                        if (errorMsg.contains(
-                                              "foreign key constraint",
-                                            ) ||
-                                            errorMsg.contains("products")) {
-                                          errorMsg =
-                                              "Cannot delete category linked to existing items.";
-                                        }
-                                        AppToast.show(
-                                          context,
-                                          errorMsg,
-                                          type: ToastType.error,
-                                        );
-                                      }
-                                    }
-                                  } else {
-                                    setState(() {
-                                      _categoryList.removeAt(index);
-                                      widget.categories.removeWhere(
-                                        (c) => c == categoryName,
-                                      );
-                                    });
-                                    AppToast.show(
-                                      context,
-                                      'Category "$categoryName" deleted.',
-                                      type: ToastType.success,
-                                    );
-                                  }
-                                },
-                                child: const Icon(
-                                  Icons.delete_rounded,
-                                  size: 18,
-                                  color: AppColors.error,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                if (_categoryList.isEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 20.0),
+                      child: AppEmptyState(
+                        icon: Icons.category_outlined,
+                        title: 'No Categories Found',
+                        description:
+                            'No product categories exist yet. Tap below to create your first category.',
+                        actionLabel: 'Add Category',
+                        actionIcon: Icons.add_rounded,
+                        onAction: _showAddCategoryBottomSheet,
                       ),
                     ),
-                  );
-                }, childCount: _categoryList.length),
-              ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20.0, 0.0, 20.0, 20.0),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final category = _categoryList[index];
+                        final productCount = widget.products
+                            .where((p) => p.category == category)
+                            .length;
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12.0),
+                          child: AppCard(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: isDark
+                                            ? const Color(0xFF0F2B66)
+                                            : AppColors.primaryLight,
+                                        borderRadius: BorderRadius.circular(
+                                          10.0,
+                                        ),
+                                      ),
+                                      child: Icon(
+                                        Icons.category_rounded,
+                                        color: isDark
+                                            ? const Color(0xFF5CC8FF)
+                                            : AppColors.primary,
+                                        size: 20,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 14.0),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          category,
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: textColor,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2.0),
+                                        Text(
+                                          '$productCount Products',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: subTextColor,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                Row(
+                                  children: [
+                                    Builder(
+                                      builder: (context) {
+                                        final categoryName =
+                                            _categoryList[index];
+                                        final matchIndex = _fetchedCategories
+                                            .indexWhere(
+                                              (c) => c['name'] == categoryName,
+                                            );
+                                        final bool isActive = matchIndex != -1
+                                            ? (_fetchedCategories[matchIndex]['is_active'] ==
+                                                      null ||
+                                                  _fetchedCategories[matchIndex]['is_active'] ==
+                                                      true)
+                                            : true;
+
+                                        return GestureDetector(
+                                          onTap: () async {
+                                            final newActive = !isActive;
+                                            if (matchIndex != -1) {
+                                              setState(() {
+                                                _fetchedCategories[matchIndex]['is_active'] =
+                                                    newActive;
+                                                _sortCategories();
+                                              });
+                                              final catId =
+                                                  _fetchedCategories[matchIndex]['id']
+                                                      ?.toString();
+                                              if (catId != null) {
+                                                try {
+                                                  await ApiService.updateCategory(
+                                                    catId,
+                                                    categoryName,
+                                                    isActive: newActive,
+                                                  );
+                                                  if (mounted) {
+                                                    AppToast.show(
+                                                      context,
+                                                      '"$categoryName" is now ${newActive ? "Active" : "Inactive"}',
+                                                      type: newActive
+                                                          ? ToastType.success
+                                                          : ToastType.warning,
+                                                    );
+                                                  }
+                                                } catch (_) {
+                                                  if (mounted) {
+                                                    setState(() {
+                                                      _fetchedCategories[matchIndex]['is_active'] =
+                                                          !newActive;
+                                                    });
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 3,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: isActive
+                                                  ? AppColors.success
+                                                        .withOpacity(0.12)
+                                                  : Colors.grey.withOpacity(
+                                                      0.15,
+                                                    ),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              border: Border.all(
+                                                color: isActive
+                                                    ? AppColors.success
+                                                          .withOpacity(0.4)
+                                                    : Colors.grey.withOpacity(
+                                                        0.4,
+                                                      ),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              isActive ? 'Active' : 'Inactive',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: isActive
+                                                    ? AppColors.success
+                                                    : Colors.grey,
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    const SizedBox(width: 12.0),
+                                    GestureDetector(
+                                      onTap: () async {
+                                        if (_categoryList.length <= 1) {
+                                          AppToast.show(
+                                            context,
+                                            'At least one active category is required.',
+                                            type: ToastType.warning,
+                                          );
+                                          return;
+                                        }
+
+                                        final categoryName =
+                                            _categoryList[index];
+                                        final matchIndex = _fetchedCategories
+                                            .indexWhere(
+                                              (c) => c['name'] == categoryName,
+                                            );
+                                        final categoryId = matchIndex != -1
+                                            ? _fetchedCategories[matchIndex]['id']
+                                                  ?.toString()
+                                            : null;
+
+                                        if (categoryId != null &&
+                                            categoryId.isNotEmpty) {
+                                          try {
+                                            showDialog(
+                                              context: context,
+                                              barrierDismissible: false,
+                                              builder: (context) => const Center(
+                                                child:
+                                                    CircularProgressIndicator(),
+                                              ),
+                                            );
+                                            await ApiService.deleteCategory(
+                                              categoryId,
+                                            );
+                                            if (context.mounted) {
+                                              Navigator.pop(
+                                                context,
+                                              ); // close loader
+                                            }
+
+                                            if (mounted) {
+                                              setState(() {
+                                                _categoryList.removeAt(index);
+                                                if (matchIndex != -1 &&
+                                                    matchIndex <
+                                                        _fetchedCategories
+                                                            .length) {
+                                                  _fetchedCategories.removeAt(
+                                                    matchIndex,
+                                                  );
+                                                }
+                                                widget.categories.removeWhere(
+                                                  (c) => c == categoryName,
+                                                );
+                                              });
+                                              AppToast.show(
+                                                context,
+                                                'Category "$categoryName" deleted successfully.',
+                                                type: ToastType.success,
+                                              );
+                                            }
+                                          } catch (e) {
+                                            if (context.mounted) {
+                                              Navigator.pop(
+                                                context,
+                                              ); // close loader
+                                            }
+                                            if (mounted) {
+                                              String errorMsg = e
+                                                  .toString()
+                                                  .replaceAll(
+                                                    "Exception: ",
+                                                    "",
+                                                  );
+                                              if (errorMsg.contains(
+                                                    "foreign key constraint",
+                                                  ) ||
+                                                  errorMsg.contains(
+                                                    "products",
+                                                  )) {
+                                                errorMsg =
+                                                    "Cannot delete category linked to existing items.";
+                                              }
+                                              AppToast.show(
+                                                context,
+                                                errorMsg,
+                                                type: ToastType.error,
+                                              );
+                                            }
+                                          }
+                                        } else {
+                                          setState(() {
+                                            _categoryList.removeAt(index);
+                                            widget.categories.removeWhere(
+                                              (c) => c == categoryName,
+                                            );
+                                          });
+                                          AppToast.show(
+                                            context,
+                                            'Category "$categoryName" deleted.',
+                                            type: ToastType.success,
+                                          );
+                                        }
+                                      },
+                                      child: const Icon(
+                                        Icons.delete_rounded,
+                                        size: 18,
+                                        color: AppColors.error,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }, childCount: _categoryList.length),
+                    ),
+                  ),
+              ],
             ),
-        ],
-      ),
     );
   }
 }

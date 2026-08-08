@@ -226,111 +226,87 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 32.0),
-                        const SizedBox(height: 12.0),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? const Color(0xFF1E293B)
-                                : Colors.white,
-                            borderRadius: BorderRadius.circular(20.0),
-                            border: Border.all(
-                              color: isDark
-                                  ? const Color(0xFF334155)
-                                  : const Color(0xFFE2E8F0),
+                        const SizedBox(height: 24.0),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Merchant Owner Name',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
+                              ),
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(
-                                  isDark ? 0.15 : 0.04,
-                                ),
-                                blurRadius: 16,
-                                offset: const Offset(0, 4),
+                            const SizedBox(height: 8.0),
+                            RoundedTextField(
+                              controller: _merchantNameController,
+                              hintText: 'e.g. John Doe',
+                              prefixIcon: Icons.person_rounded,
+                            ),
+                            const SizedBox(height: 16.0),
+                            Text(
+                              'Store Name',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
                               ),
-                            ],
-                          ),
-                          padding: const EdgeInsets.all(20.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Merchant Owner Name',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: textColor,
-                                ),
+                            ),
+                            const SizedBox(height: 8.0),
+                            RoundedTextField(
+                              controller: _storeNameController,
+                              hintText: 'Central Coffee Hub',
+                              prefixIcon: Icons.store_rounded,
+                            ),
+                            const SizedBox(height: 16.0),
+                            Text(
+                              'Store Contact Email (Read Only)',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: subTextColor,
                               ),
-                              const SizedBox(height: 8.0),
-                              RoundedTextField(
-                                controller: _merchantNameController,
-                                hintText: 'e.g. John Doe',
-                                prefixIcon: Icons.person_rounded,
+                            ),
+                            const SizedBox(height: 8.0),
+                            RoundedTextField(
+                              controller: _storeEmailController,
+                              hintText: 'contact@coffeehub.com',
+                              prefixIcon: Icons.mail_rounded,
+                              readOnly: true,
+                            ),
+                            const SizedBox(height: 16.0),
+                            Text(
+                              'Store Contact Phone',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
                               ),
-                              const SizedBox(height: 16.0),
-                              Text(
-                                'Store Name',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: textColor,
-                                ),
+                            ),
+                            const SizedBox(height: 8.0),
+                            RoundedTextField(
+                              controller: _storePhoneController,
+                              hintText: '+1 (555) 000-0000',
+                              prefixIcon: Icons.phone_rounded,
+                              keyboardType: TextInputType.phone,
+                            ),
+                            const SizedBox(height: 16.0),
+                            Text(
+                              'Store Address',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
                               ),
-                              const SizedBox(height: 8.0),
-                              RoundedTextField(
-                                controller: _storeNameController,
-                                hintText: 'Central Coffee Hub',
-                                prefixIcon: Icons.store_rounded,
-                              ),
-                              const SizedBox(height: 16.0),
-                              Text(
-                                'Store Contact Email (Read Only)',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: subTextColor,
-                                ),
-                              ),
-                              const SizedBox(height: 8.0),
-                              RoundedTextField(
-                                controller: _storeEmailController,
-                                hintText: 'contact@coffeehub.com',
-                                prefixIcon: Icons.mail_rounded,
-                                readOnly: true,
-                              ),
-                              const SizedBox(height: 16.0),
-                              Text(
-                                'Store Contact Phone',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: textColor,
-                                ),
-                              ),
-                              const SizedBox(height: 8.0),
-                              RoundedTextField(
-                                controller: _storePhoneController,
-                                hintText: '+1 (555) 000-0000',
-                                prefixIcon: Icons.phone_rounded,
-                                keyboardType: TextInputType.phone,
-                              ),
-                              const SizedBox(height: 16.0),
-                              Text(
-                                'Store Address',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: textColor,
-                                ),
-                              ),
-                              const SizedBox(height: 8.0),
-                              RoundedTextField(
-                                controller: _storeAddressController,
-                                hintText: 'e.g. 123 Oak Road, City',
-                                prefixIcon: Icons.location_on_rounded,
-                              ),
-                            ],
-                          ),
+                            ),
+                            const SizedBox(height: 8.0),
+                            RoundedTextField(
+                              controller: _storeAddressController,
+                              hintText: 'e.g. 123 Oak Road, City',
+                              prefixIcon: Icons.location_on_rounded,
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 32.0),
 
